@@ -6,7 +6,7 @@
 // @ts-nocheck
 /* eslint-disable no-undef */
 /* global defineProps, defineExpose */
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref, getCurrentInstance } from 'vue';
 import cytoscape from 'cytoscape';
 import { MODES } from '../constants/modes';
 
@@ -17,10 +17,16 @@ const props = defineProps({
 const container = ref(null);
 let cy = null;
 
-// Estado para modo Johnson/CPM
+// ===== Estado para Johnson/CPM =====
 let criticalMode = false;
 let lastNodesTimes = null;      // { [nodeId]: {E, L, slack} }
 let lastEdgeSlack = new Map();  // edgeId -> slack
+
+// ===== Modo estricto Johnson (toggle desde Sidebar/App) =====
+let johnsonStrict = false;
+function setJohnsonStrictMode(v) {
+  johnsonStrict = !!v;
+}
 
 function randomColor() {
   const h = Math.floor(Math.random() * 360);
@@ -45,54 +51,39 @@ onMounted(() => {
         selector: 'node',
         style: {
           'background-color': ele => ele.data('color') || '#66ccff',
-          // Mostramos "Nombre" y, en modo Johnson, "Nombre\nE|L"
           'label': 'data(labelDisplay)',
-          'font-size': 10,                 // ← tamaño del texto del nodo
+          'font-size': 10,
           'color': '#e5e7eb',
           'text-wrap': 'wrap',
           'text-max-width': 120,
           'text-valign': 'center',
           'text-halign': 'center',
-
-          // SIN fondo detrás del texto; usa contorno fino para legibilidad
           'text-background-opacity': 0,
           'text-outline-width': 1.5,
           'text-outline-color': '#0b1020',
-
-          // Borde del nodo
           'border-width': 2,
           'border-color': '#0b1020'
         }
       },
-      
 
       // ====== ARISTAS (normales) ======
       {
         selector: 'edge',
         style: {
-          'width': 3,                      // ← grosor de aristas
+          'width': 3,
           'line-color': '#102d85',
           'curve-style': 'bezier',
-
-          // Etiqueta: peso (normal) o "h=..." (modo Johnson)
           'label': 'data(labelText)',
-          'font-size': 10,                 // ← tamaño del texto de arista
-          'color': '#ffffff',              // mismo tono que la línea
-
-          // SIN fondo; contorno para que se lea sobre cualquier color
+          'font-size': 10,
+          'color': '#ffffff',
           'text-background-opacity': 0,
           'text-outline-width': 1.5,
           'text-outline-color': '#000000',
-
-          // Ubicación de la etiqueta
           'edge-text-rotation': 'autorotate',
           'text-rotation': 'autorotate',
-          'text-margin-y': 12              // separa un poco de la línea
-
+          'text-margin-y': 12
         }
       },
-
-      // Solo define la flecha (no repitas colores; hereda de line-color)
       {
         selector: 'edge[directed = 1]',
         style: {
@@ -111,10 +102,10 @@ onMounted(() => {
         selector: 'edge.critical',
         style: {
           'line-color': '#ef4444',
-          'width': 3,                      // ← grosor de arista crítica
-          'arrow-scale': 1.1,              // ← flecha más grande
-          'color': '#ef4444',              // texto de arista crítica del mismo color
-          'text-outline-color': '#0b1020', // contorno oscuro, sin fondo
+          'width': 3,
+          'arrow-scale': 1.1,
+          'color': '#ef4444',
+          'text-outline-color': '#0b1020',
           'text-outline-width': 1.5,
           'target-arrow-color': '#ef4444'
         }
@@ -122,12 +113,11 @@ onMounted(() => {
       {
         selector: 'node.critical',
         style: {
-          'border-width': 2,               // ← grosor del aro del nodo crítico
+          'border-width': 2,
           'border-color': '#ef4444',
         }
       }
     ],
-
     layout: { name: 'preset' }
   });
 
@@ -186,13 +176,22 @@ function bindInteractions() {
 }
 
 // ====== Emits a App.vue ======
-import { getCurrentInstance } from 'vue';
 const { emit } = getCurrentInstance();
 function emitAddNode(position) { emit('request-add-node', { position }); }
 function emitAddEdge(sourceId, targetId) { emit('request-add-edge', { sourceId, targetId }); }
 function emitEditNode(id, label, color) { emit('request-edit-node', { id, label, color }); }
 function emitEditEdge(id, weight, directed) { emit('request-edit-edge', { id, weight, directed }); }
 function emitDelete(id, kind) { emit('request-delete', { id, kind }); }
+
+// ====== Helpers de validación (modo estricto) ======
+function hasReverseEdge(u, v) {
+  // ¿Existe v -> u dirigida?
+  const sel = cy.$(`edge[directed = 1][source = "${v}"][target = "${u}"]`);
+  return sel && sel.nonempty();
+}
+function isSelfLoop(u, v) {
+  return u === v;
+}
 
 // ====== API expuesta ======
 function ensureNodeLabelDisplay(n) {
@@ -211,27 +210,41 @@ function addNode(label, position, color) {
 }
 
 function addEdge({ sourceId, targetId, weight, directed }) {
+  // === Validaciones modo Johnson estricto ===
+  if (johnsonStrict) {
+    if (isSelfLoop(sourceId, targetId)) {
+      alert('Modo Johnson: no se permiten bucles (A → A).');
+      return { ok: false, message: 'Modo Johnson: no se permiten bucles (A → A).' };
+    }
+    if (hasReverseEdge(sourceId, targetId)) {
+      alert('Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).');
+      return { ok: false, message: 'Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).' };
+    }
+  }
+
   const id = `e${Date.now()}${Math.floor(Math.random()*1000)}`;
   const w = Number(weight);
+  const dir = johnsonStrict ? 1 : (directed ? 1 : 0);
+
   cy.add({
     group: 'edges',
     data: {
       id, source: sourceId, target: targetId,
       weight: w,
-      directed: directed ? 1 : 0,
+      directed: dir,
       labelText: String(isFinite(w) ? w : 0) // por defecto: muestra el peso
     }
   });
+
+  return { ok: true, id };
 }
 
 function updateNode({ id, label, color }) {
   const n = cy.getElementById(id);
   if (n && n.nonempty()) {
-    // Actualiza datos básicos
     if (label != null) n.data('label', label);
     if (color != null) n.data('color', color);
 
-    // Refresca la etiqueta mostrada según estemos o no en modo crítico
     const displayBase = n.data('label') || n.id();
     if (criticalMode && lastNodesTimes?.[id]) {
       const { E, L } = lastNodesTimes[id];
@@ -242,22 +255,42 @@ function updateNode({ id, label, color }) {
   }
 }
 
-
 function updateEdge({ id, weight, directed }) {
   const e = cy.getElementById(id);
-  if (e && e.nonempty()) {
-    if (weight != null) {
-      const w = Number(weight);
-      e.data('weight', w);
-      if (!criticalMode) {
-        e.data('labelText', String(isFinite(w) ? w : 0));
-      } else {
-        const s = lastEdgeSlack.get(id);
-        e.data('labelText', s != null ? fmtSlack(s) : String(isFinite(w) ? w : 0));
-      }
+  if (!e || e.empty()) return { ok: false, message: 'Arista no encontrada.' };
+
+  // En modo estricto, siempre dirigida
+  const dir = johnsonStrict ? 1 : (directed ? 1 : 0);
+
+  // Si se intenta “invertir” con otra arista opuesta presente, lo mantenemos simple:
+  // (updateEdge aquí no cambia source/target, sólo peso y dir)
+  if (johnsonStrict && dir === 1) {
+    const u = e.data('source') || e.source().id();
+    const v = e.data('target') || e.target().id();
+    if (isSelfLoop(u, v)) {
+      alert('Modo Johnson: no se permiten bucles (A → A).');
+      return { ok: false, message: 'Modo Johnson: no se permiten bucles (A → A).' };
+      
     }
-    if (directed != null) e.data('directed', directed ? 1 : 0);
+    if (hasReverseEdge(u, v) && !e.same(cy.$(`edge[directed = 1][source = "${v}"][target = "${u}"]`))) {
+      alert('Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).');
+      return { ok: false, message: 'Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).' };
+    }
   }
+
+  if (weight != null) {
+    const w = Number(weight);
+    e.data('weight', w);
+    if (!criticalMode) {
+      e.data('labelText', String(isFinite(w) ? w : 0));
+    } else {
+      const s = lastEdgeSlack.get(id);
+      e.data('labelText', s != null ? fmtSlack(s) : String(isFinite(w) ? w : 0));
+    }
+  }
+  e.data('directed', dir);
+
+  return { ok: true };
 }
 
 function deleteElement(id) { cy.getElementById(id).remove(); }
@@ -294,11 +327,12 @@ function loadGraphData(json, { replace = false } = {}) {
   });
   (json.edges || []).forEach(e => {
     const w = Number(e.weight) || 0;
+    // Si johnsonStrict está activo al importar, forzamos dirigidas; no reparamos pares/ciclos aquí.
     els.push({
       group: 'edges',
       data: {
         id: e.id, source: e.source, target: e.target,
-        weight: w, directed: e.directed ? 1 : 0,
+        weight: w, directed: johnsonStrict ? 1 : (e.directed ? 1 : 0),
         labelText: String(w)
       }
     });
@@ -334,7 +368,6 @@ function showCriticalCPM(result) {
   lastEdgeSlack = new Map();
   (result.edgesTable || []).forEach(r => lastEdgeSlack.set(r.id, r.slack));
 
-  // Restaurar textos base y luego aplicar E|L y h=…
   cy.nodes().forEach(n => {
     ensureNodeLabelDisplay(n);
     const id = n.id();
@@ -352,7 +385,6 @@ function showCriticalCPM(result) {
     }
   });
 
-  // Atenuar todo y resaltar la ruta crítica
   cy.nodes().addClass('dim');
   cy.edges().addClass('dim');
 
@@ -364,7 +396,6 @@ function showCriticalCPM(result) {
       e.target().removeClass('dim').addClass('critical');
     }
   });
-
 }
 
 function clearCriticalCPM() {
@@ -372,7 +403,6 @@ function clearCriticalCPM() {
   lastNodesTimes = null;
   lastEdgeSlack.clear();
 
-  // Restaurar etiquetas por defecto
   cy.nodes().forEach(n => {
     const base = n.data('label') || n.id();
     n.data('labelDisplay', base);
@@ -386,6 +416,9 @@ function clearCriticalCPM() {
 }
 
 defineExpose({
+  // Johnson strict toggle
+  setJohnsonStrictMode,
+
   addNode,
   addEdge,
   updateNode,

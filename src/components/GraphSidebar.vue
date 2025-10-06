@@ -56,6 +56,13 @@
       <h2>Algoritmos</h2>
       <div class="subgroup">
         <h2>Johnson</h2>
+        <div class="toggle-wrap">
+          <label class="switch">
+            <input type="checkbox" v-model="johnsonMode" @change="$emit('toggle-johnson-mode', johnsonMode)" />
+            <span class="slider round"></span>
+          </label>
+          <span class="toggle-label">{{ johnsonMode ? 'Modo Johnson ON' : 'Modo Johnson OFF' }}</span>
+        </div>
         <button class="button" 
           :disabled="johnsonDisabled"
           :title="johnsonDisabled ? 'Hay aristas sin dirección. Edítalas para habilitar.' : ''"
@@ -81,7 +88,8 @@ import { MODES } from '../constants/modes';
 
 const props = defineProps({
   mode: { type: String, default: MODES.ADD_NODE },
-  johnsonDisabled: { type: Boolean, default: false }
+  johnsonDisabled: { type: Boolean, default: false },
+  johnsonStrict: { type: Boolean, default: false }
 });
 
 const modeLabel = computed(() => {
@@ -95,3 +103,5 @@ const modeLabel = computed(() => {
   }
 });
 </script>
+
+

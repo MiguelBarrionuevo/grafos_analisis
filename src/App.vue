@@ -16,6 +16,7 @@
       @open-help="openHelp"
       @run-johnson="openJohnsonChoice"
       @clear-highlight="clearHighlight"
+      @toggle-johnson-mode="setJohnsonMode"
     />
 
     <main class="main">
@@ -74,10 +75,10 @@
           />
           <div v-if="forms.addEdge.error" class="error-text">{{ forms.addEdge.error }}</div>
         </div>
-        <div style="display:flex;align-items:flex-end;">
-          <label class="checkbox">
-            <input type="checkbox" v-model="forms.addEdge.directed" />
-            ¿Dirigida?
+        <div style="display:flex;align-items:flex-end;" >
+          <label class="checkbox" :hidden="johnsonStrict">
+            <input type="checkbox" v-model="forms.addEdge.directed" :hidden="johnsonStrict"/>
+            <h5 :hidden="johnsonStrict">¿Dirigida?</h5>
           </label>
         </div>
       </div>
@@ -134,7 +135,7 @@
         </div>
         <div style="display:flex;align-items:flex-end;">
           <label class="checkbox">
-            <input type="checkbox" v-model="forms.editEdge.directed" />
+            <input type="checkbox" v-model="forms.editEdge.directed" :disabled="johnsonStrict"/>
             ¿Dirigida?
           </label>
         </div>
@@ -292,40 +293,7 @@
       <p>Se eliminarán <strong>todos</strong> los nodos y aristas. ¿Deseas continuar?</p>
     </GraphModal>
 
-    <GraphModal
-      :visible="modals.matrix.visible"
-      title="Matriz de adyacencia"
-      :hide-submit="true"
-      @cancel="closeMatrixModal"
-    >
-      <div class="row" style="align-items:center;gap:12px;flex-wrap:wrap">
-        <label class="checkbox">
-          <input type="checkbox" v-model="adjOptions.weighted" @change="recomputeAdjacency" />
-          Usar pesos
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" v-model="adjOptions.sortByLabel" @change="recomputeAdjacency" />
-          Ordenar por nombre
-        </label>
-        <button class="button small" @click="copyAdjacencyCSV">Copiar CSV</button>
-      </div>
-      <div class="matrix-wrap">
-        <table class="matrix-table">
-          <thead>
-            <tr>
-              <th class="corner"></th>
-              <th v-for="n in adjacency.nodes" :key="n.id" class="data-col">{{ n.label }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row,i) in adjacency.matrix" :key="i">
-              <th class="row-header">{{ adjacency.nodes[i]?.label }}</th>
-              <td v-for="(val,j) in row" :key="j">{{ val }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </GraphModal>
+
     <!-- MODAL: Elegir criterio Johnson -->
     <GraphModal
       :visible="modals.johnsonChoice.visible"
@@ -385,6 +353,15 @@ import { computeCPM, computeShortestPathDAG } from './utils/cpm';
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
+
+
+// === Toggle de modo Johnson estricto ===
+const johnsonStrict = ref(false);
+function setJohnsonMode(val) {
+  johnsonStrict.value = !!val;
+  // Notifica al canvas para que active/desactive reglas estrictas
+  graphRef.value?.setJohnsonStrictMode?.(johnsonStrict.value);
+}
 
 /** Toggle de modo: si vuelves a hacer clic en el mismo, pasa a NONE */
 function setMode(next) {
@@ -603,6 +580,11 @@ function closeHelp() { modals.help.visible = false; }
 function runJohnson(mode = 'max') {
   const data = graphRef.value.getGraphData();
 
+  if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+    alert('El grafo aún no está listo.');
+    return;
+  }
+
   // seguridad extra: bloqueo si hay aristas sin dirección
   if (data.edges.some(e => !e.directed)) {
     alert('Hay aristas sin dirección. Johnson requiere aristas dirigidas.');
@@ -661,5 +643,7 @@ function openJohnsonChoice() {
 
   modals.johnsonChoice.visible = true;
 }
+
+
 
 </script>
