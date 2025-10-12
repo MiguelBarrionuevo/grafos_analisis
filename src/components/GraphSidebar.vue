@@ -69,8 +69,18 @@
           @click="$emit('run-johnson')">🧭 Johnson (Ruta crítica)</button>
         <button class="button" @click="$emit('clear-highlight')">✨ Quitar resaltado</button>
       </div>
+      <div class="subgroup" style="margin-top: 10px;">
+        <h2>Asignación</h2>
+        <button class="button" @click="$emit('run-assignment')">⚖️ Asignación</button>
+      </div>
     </div>
+    <hr class="sep" />
 
+    <div class="group">
+      <h2>Arboles Binarios de Busqueda</h2>
+      <button class="button" @click="$emit('open-build-tree')">🌳 Construir Arboles</button>
+      <button class="button" @click="$emit('open-reconstruct-tree')">🌿 Reconstruir Arboles</button>
+    </div>
     <hr class="sep" />
 
     <div class="group">
@@ -78,6 +88,7 @@
     </div>
   </aside>
 </template>
+
 
 <script setup>
 // @ts-nocheck

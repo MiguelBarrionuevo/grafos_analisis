@@ -1,10 +1,11 @@
 <template>
-  <div class="app-layout">
+  <div v-if="currentView === 'main'" class="app-layout">
     <header class="header">
       <h1>Analisis de Algoritmos - Lagartos Del Parque 🦎</h1>
     </header>
 
     <GraphSidebar
+      @run-assignment="switchToAssignmentView"
       class="sidebar"
       :mode="mode"
       :johnson-disabled="johnsonDisabled"
@@ -17,6 +18,8 @@
       @run-johnson="openJohnsonChoice"
       @clear-highlight="clearHighlight"
       @toggle-johnson-mode="setJohnsonMode"
+      @open-build-tree="switchToBinaryTreeView"
+      @open-reconstruct-tree="switchToReconstructTreeView"
     />
 
     <main class="main">
@@ -340,20 +343,42 @@
 
 
   </div>
+  <!-- Vista dedicada para el algoritmo de Asignación -->
+  <AssignmentView v-else-if="currentView === 'assignment'" @back-to-main="switchToMainView" />
+
+  <!-- Vista dedicada para Árboles Binarios -->
+  <BinaryTreeView v-else-if="currentView === 'binary-tree'" @back-to-main="switchToMainView" />
+
+  <!-- Vista dedicada para Reconstruir Árboles -->
+  <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
 </template>
 
 <script setup>
 // @ts-nocheck
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, defineAsyncComponent } from 'vue';
 import GraphSidebar from './components/GraphSidebar.vue';
 import GraphCanvas from './components/GraphCanvas.vue';
 import GraphModal from './components/GraphModal.vue';
 import { MODES } from './constants/modes';
 import { computeCPM, computeShortestPathDAG } from './utils/cpm';
+const AssignmentView = defineAsyncComponent(() =>
+  import('./components/AssignmentView.vue')
+);
+const BinaryTreeView = defineAsyncComponent(() =>
+  import('./components/BinaryTreeView.vue')
+);
+const ReconstructTreeView = defineAsyncComponent(() =>
+  import('./components/ReconstructTreeView.vue')
+);
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
-
+// Control de vistas (main o assignment)
+const currentView = ref('main');
+const switchToAssignmentView = () => { currentView.value = 'assignment'; };
+const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
+const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
+const switchToMainView = () => { currentView.value = 'main'; };
 
 // === Toggle de modo Johnson estricto ===
 const johnsonStrict = ref(false);
@@ -401,10 +426,6 @@ const confirmDeleteTitle = computed(() =>
 /* ===== Matriz de adyacencia ===== */
 const adjacency = reactive({ nodes: [], matrix: [] });
 const adjOptions = reactive({ weighted: true, sortByLabel: true });
-
-
-
-
 
 function openMatrixModal() { recomputeAdjacency(); modals.matrix.visible = true; }
 function closeMatrixModal() { modals.matrix.visible = false; }
