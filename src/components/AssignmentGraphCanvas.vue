@@ -17,26 +17,9 @@ const props = defineProps({
 const container = ref(null);
 let cy = null;
 
-// ===== Estado para Johnson/CPM =====
-let criticalMode = false;
-let lastNodesTimes = null;      // { [nodeId]: {E, L, slack} }
-let lastEdgeSlack = new Map();  // edgeId -> slack
-
-// ===== Modo estricto Johnson (toggle desde Sidebar/App) =====
-let johnsonStrict = false;
-function setJohnsonStrictMode(v) {
-  johnsonStrict = !!v;
-}
-
 function randomColor() {
   const h = Math.floor(Math.random() * 360);
   return `hsl(${h} 70% 60%)`;
-}
-function fmtSlack(x) {
-  const v = Number(x);
-  if (!isFinite(v)) return 'h=';
-  const val = Math.abs(v) < 1e-9 ? 0 : v;
-  return `h=${val}`;
 }
 
 onMounted(() => {
@@ -93,17 +76,17 @@ onMounted(() => {
         }
       },
 
-      // ====== ATENUADOS CUANDO SE MUESTRA LA RUTA CRÍTICA ======
+      // ====== ATENUADOS (para resaltar la solución) ======
       { selector: 'node.dim', style: { 'opacity': 0.35 } },
       { selector: 'edge.dim', style: { 'opacity': 0.20 } },
 
-      // ====== RESALTADO DE RUTA CRÍTICA ======
+      // ====== RESALTADO DE SOLUCIÓN (ruta crítica/asignación) ======
       {
         selector: 'edge.critical',
         style: {
           'line-color': '#ef4444',
-          'width': 3,
-          'arrow-scale': 1.1,
+          'width': 4,
+          'arrow-scale': 1.2,
           'color': '#ef4444',
           'text-outline-color': '#0b1020',
           'text-outline-width': 1.5,
@@ -113,7 +96,7 @@ onMounted(() => {
       {
         selector: 'node.critical',
         style: {
-          'border-width': 2,
+          'border-width': 3,
           'border-color': '#ef4444',
         }
       }
@@ -183,22 +166,7 @@ function emitEditNode(id, label, color) { emit('request-edit-node', { id, label,
 function emitEditEdge(id, weight, directed) { emit('request-edit-edge', { id, weight, directed }); }
 function emitDelete(id, kind) { emit('request-delete', { id, kind }); }
 
-// ====== Helpers de validación (modo estricto) ======
-function hasReverseEdge(u, v) {
-  // ¿Existe v -> u dirigida?
-  const sel = cy.$(`edge[directed = 1][source = "${v}"][target = "${u}"]`);
-  return sel && sel.nonempty();
-}
-function isSelfLoop(u, v) {
-  return u === v;
-}
-
 // ====== API expuesta ======
-function ensureNodeLabelDisplay(n) {
-  const base = n.data('label') || n.id();
-  if (!n.data('labelDisplay')) n.data('labelDisplay', base);
-}
-
 function addNode(label, position, color, data = {}) {
   const id = `n${Date.now()}${Math.floor(Math.random()*1000)}`;
   const baseLabel = (label || id);
@@ -210,21 +178,9 @@ function addNode(label, position, color, data = {}) {
 }
 
 function addEdge({ sourceId, targetId, weight, directed }) {
-  // === Validaciones modo Johnson estricto ===
-  if (johnsonStrict) {
-    if (isSelfLoop(sourceId, targetId)) {
-      alert('Modo Johnson: no se permiten bucles (A → A).');
-      return { ok: false, message: 'Modo Johnson: no se permiten bucles (A → A).' };
-    }
-    if (hasReverseEdge(sourceId, targetId)) {
-      alert('Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).');
-      return { ok: false, message: 'Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).' };
-    }
-  }
-
   const id = `e${Date.now()}${Math.floor(Math.random()*1000)}`;
   const w = Number(weight);
-  const dir = johnsonStrict ? 1 : (directed ? 1 : 0);
+  const dir = directed ? 1 : 0;
 
   cy.add({
     group: 'edges',
@@ -246,12 +202,7 @@ function updateNode({ id, label, color }) {
     if (color != null) n.data('color', color);
 
     const displayBase = n.data('label') || n.id();
-    if (criticalMode && lastNodesTimes?.[id]) {
-      const { E, L } = lastNodesTimes[id];
-      n.data('labelDisplay', `${displayBase}\n${E}|${L}`);
-    } else {
-      n.data('labelDisplay', displayBase);
-    }
+    n.data('labelDisplay', displayBase);
   }
 }
 
@@ -259,34 +210,11 @@ function updateEdge({ id, weight, directed }) {
   const e = cy.getElementById(id);
   if (!e || e.empty()) return { ok: false, message: 'Arista no encontrada.' };
 
-  // En modo estricto, siempre dirigida
-  const dir = johnsonStrict ? 1 : (directed ? 1 : 0);
-
-  // Si se intenta “invertir” con otra arista opuesta presente, lo mantenemos simple:
-  // (updateEdge aquí no cambia source/target, sólo peso y dir)
-  if (johnsonStrict && dir === 1) {
-    const u = e.data('source') || e.source().id();
-    const v = e.data('target') || e.target().id();
-    if (isSelfLoop(u, v)) {
-      alert('Modo Johnson: no se permiten bucles (A → A).');
-      return { ok: false, message: 'Modo Johnson: no se permiten bucles (A → A).' };
-      
-    }
-    if (hasReverseEdge(u, v) && !e.same(cy.$(`edge[directed = 1][source = "${v}"][target = "${u}"]`))) {
-      alert('Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).');
-      return { ok: false, message: 'Modo Johnson: no se permiten pares opuestos (ya existe la arista destino → origen).' };
-    }
-  }
-
+  const dir = directed ? 1 : 0;
   if (weight != null) {
     const w = Number(weight);
     e.data('weight', w);
-    if (!criticalMode) {
-      e.data('labelText', String(isFinite(w) ? w : 0));
-    } else {
-      const s = lastEdgeSlack.get(id);
-      e.data('labelText', s != null ? fmtSlack(s) : String(isFinite(w) ? w : 0));
-    }
+    e.data('labelText', String(isFinite(w) ? w : 0));
   }
   e.data('directed', dir);
 
@@ -294,7 +222,7 @@ function updateEdge({ id, weight, directed }) {
 }
 
 function deleteElement(id) { cy.getElementById(id).remove(); }
-function clearAll() { cy.elements().remove(); lastNodesTimes = null; lastEdgeSlack.clear(); }
+function clearAll() { cy.elements().remove(); }
 function resetEdgeSelection() { cy.elements('node.selected').removeClass('selected'); }
 
 function getGraphData() {
@@ -326,14 +254,12 @@ function loadGraphData(json, { replace = false } = {}) {
       position: n.position
     });
   });
+
   (json.edges || []).forEach(e => {
     const w = Number(e.weight) || 0;
-    // Si johnsonStrict está activo al importar, forzamos dirigidas; no reparamos pares/ciclos aquí.
     els.push({
       group: 'edges',
-      data: {
-        id: e.id, source: e.source, target: e.target,
-        weight: w, directed: johnsonStrict ? 1 : (e.directed ? 1 : 0),
+      data: { id: e.id, source: e.source, target: e.target, weight: w, directed: e.directed ? 1 : 0,
         labelText: String(w)
       }
     });
@@ -362,64 +288,33 @@ function getAdjacency({ weighted = true, sortByLabel = true } = {}) {
   return { nodes, matrix: m };
 }
 
-// ====== Visual CPM ======
-function showCriticalCPM(result) {
-  criticalMode = true;
-  lastNodesTimes = result.nodesTimes || null;
-  lastEdgeSlack = new Map();
-  (result.edgesTable || []).forEach(r => lastEdgeSlack.set(r.id, r.slack));
+function highlightAssignment(result) {
+  clearHighlight();
+  if (!result || !result.assignment) return;
 
-  cy.nodes().forEach(n => {
-    ensureNodeLabelDisplay(n);
-    const id = n.id();
-    const base = n.data('label') || id;
-    const t = lastNodesTimes?.[id];
-    n.data('labelDisplay', t ? `${base}\n${t.E}|${t.L}` : base);
-  });
-  cy.edges().forEach(e => {
-    const s = lastEdgeSlack.get(e.id());
-    if (s == null) {
-      const w = Number(e.data('weight'));
-      e.data('labelText', String(isFinite(w) ? w : 0));
-    } else {
-      e.data('labelText', fmtSlack(s));
-    }
+  // Crear un conjunto de IDs de las aristas que forman parte de la asignación
+  const assignmentEdges = new Set();
+  result.assignment.forEach(edge => {
+    assignmentEdges.add(edge.edgeId);
   });
 
-  cy.nodes().addClass('dim');
-  cy.edges().addClass('dim');
+  // Atenuar todos los elementos que no están en la asignación
+  cy.elements().addClass('dim');
 
-  (result.criticalEdges || []).forEach(id => {
-    const e = cy.getElementById(id);
-    if (e && e.nonempty()) {
-      e.removeClass('dim').addClass('critical');
-      e.source().removeClass('dim').addClass('critical');
-      e.target().removeClass('dim').addClass('critical');
+  cy.edges().forEach(edge => {
+    if (assignmentEdges.has(edge.id())) {
+      // Si la arista es parte de la solución, quitar la atenuación y resaltarla
+      edge.removeClass('dim').addClass('critical');
+      // También resaltar los nodos conectados por esta arista
+      edge.source().removeClass('dim').addClass('critical');
+      edge.target().removeClass('dim').addClass('critical');
     }
   });
 }
 
-function clearCriticalCPM() {
-  criticalMode = false;
-  lastNodesTimes = null;
-  lastEdgeSlack.clear();
-
-  cy.nodes().forEach(n => {
-    const base = n.data('label') || n.id();
-    n.data('labelDisplay', base);
-  });
-  cy.edges().forEach(e => {
-    const w = Number(e.data('weight'));
-    e.data('labelText', String(isFinite(w) ? w : 0));
-  });
-
-  cy.elements().removeClass('critical').removeClass('dim');
-}
+function clearHighlight() { cy.elements().removeClass('critical dim'); }
 
 defineExpose({
-  // Johnson strict toggle
-  setJohnsonStrictMode,
-
   addNode,
   addEdge,
   updateNode,
@@ -430,8 +325,8 @@ defineExpose({
   getGraphData,
   loadGraphData,
   getAdjacency,
-  showCriticalCPM,
-  clearCriticalCPM
+  highlightAssignment,
+  clearHighlight,
 });
 </script>
 

@@ -35,12 +35,13 @@ export function computeAssignment(nodes, edges, mode = 'min') {
     V.push(`dummy_v_${V.length}`);
   }
 
-  const costMatrix = Array.from({ length: n }, () => Array(n).fill(Infinity));
+  let costMatrix = Array.from({ length: n }, () => Array(n).fill(Infinity));
   const edgeMap = new Map();
 
   let maxWeight = 0;
   for (const edge of edges) {
-    maxWeight = Math.max(maxWeight, edge.weight);
+    if (isFinite(edge.weight))
+      maxWeight = Math.max(maxWeight, edge.weight);
   }
 
   for (let i = 0; i < U.length; i++) {
@@ -53,17 +54,30 @@ export function computeAssignment(nodes, edges, mode = 'min') {
         const edge = edges.find(e => (e.source === uNode && e.target === vNode) || (e.source === vNode && e.target === uNode));
         if (edge) {
           const weight = edge.weight;
-          costMatrix[i][j] = mode === 'max' ? (maxWeight - weight) : weight;
+          costMatrix[i][j] = weight;
           edgeMap.set(`${i},${j}`, edge.id);
         } else {
           // Arista no existente entre nodos reales
-          costMatrix[i][j] = mode === 'max' ? 0 : (maxWeight + 1) * n;
+          costMatrix[i][j] = mode === 'max' ? 0 : Infinity;
         }
       } else {
-        // Asignación dummy (costo 0 para minimización, costo alto para maximización)
+        // Asignación dummy (costo 0 para minimización, costo alto para maximización). Se ajustará después.
         costMatrix[i][j] = mode === 'max' ? maxWeight + 1 : 0;
       }
     }
+  }
+
+  // Si es maximización, transformar la matriz de costos. Se hace en una copia.
+  if (mode === 'max') {
+    const transformedMatrix = JSON.parse(JSON.stringify(costMatrix));
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (isFinite(transformedMatrix[i][j])) {
+          transformedMatrix[i][j] = maxWeight - transformedMatrix[i][j];
+        }
+      }
+    }
+    costMatrix = transformedMatrix;
   }
 
   steps.push({
@@ -80,13 +94,14 @@ export function computeAssignment(nodes, edges, mode = 'min') {
     let totalCost = 0;
 
     for (const [row, col] of assignmentIndices) {
+      // Solo considerar asignaciones que no involucren nodos dummy
+      if (row >= originalU.length || col >= originalV.length) continue;
+
       const edgeId = edgeMap.get(`${row},${col}`);
       if (edgeId) {
         const edge = edges.find(e => e.id === edgeId);
-        if (edge) {
-          assignedEdges.push(edgeId);
-          totalCost += edge.weight; // Sumamos el peso original
-        }
+        assignedEdges.push({ u: U[row], v: V[col], edgeId: edgeId, cost: edge.weight });
+        totalCost += edge.weight; // Sumamos el peso original
       }
     }
 
@@ -94,7 +109,7 @@ export function computeAssignment(nodes, edges, mode = 'min') {
       ok: true,
       steps, // Pasos para la visualización
       bipartiteSets: { U: originalU, V: originalV }, // Devolver los conjuntos originales
-      criticalEdges: assignedEdges,
+      assignment: assignedEdges, // La lista de aristas de la asignación final
       duration: totalCost,
       message: `Costo total de la asignación (${mode}): ${totalCost}`,
       nodesTimes: {},

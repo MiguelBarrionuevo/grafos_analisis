@@ -6,12 +6,12 @@
 */
 
 export function munkres(matrix, steps) {
-  const n = matrix.length;
-  const C = JSON.parse(JSON.stringify(matrix)); // Copia de la matriz de costos
+  const C = JSON.parse(JSON.stringify(matrix)); // Copia profunda para no modificar la matriz original.
+  const n = C.length;
 
   // Paso 1: Reducción de filas
   for (let i = 0; i < n; i++) {
-    const minVal = Math.min(...C[i]);
+    const minVal = Math.min(...C[i].filter(val => isFinite(val)));
     if (minVal > 0 && minVal !== Infinity) {
       for (let j = 0; j < n; j++) {
         if (C[i][j] !== Infinity) C[i][j] -= minVal;
@@ -72,7 +72,9 @@ export function munkres(matrix, steps) {
       if (coveredRows.has(i)) continue;
       for (let j = 0; j < n; j++) {
         if (finalCoveredCols.has(j)) continue;
-        minUncovered = Math.min(minUncovered, C[i][j]);
+        if (C[i][j] < minUncovered) { // Ignorar Infinity
+          minUncovered = C[i][j];
+        }
       }
     }
 
@@ -85,7 +87,9 @@ export function munkres(matrix, steps) {
       if (!coveredRows.has(i)) {
         for (let j = 0; j < n; j++) {
           if (!finalCoveredCols.has(j)) {
-            C[i][j] -= minUncovered;
+            if (C[i][j] !== Infinity) {
+              C[i][j] -= minUncovered;
+            }
           }
         }
       }
@@ -94,7 +98,9 @@ export function munkres(matrix, steps) {
     // Sumar en las intersecciones
     for (const i of coveredRows) {
       for (const j of finalCoveredCols) {
-        C[i][j] += minUncovered;
+        if (C[i][j] !== Infinity) {
+          C[i][j] += minUncovered;
+        }
       }
     }
 

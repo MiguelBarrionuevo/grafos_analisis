@@ -140,6 +140,18 @@
       width="auto"
     >
       <p>{{ assignmentSteps.currentStep?.description }}</p>
+
+      <!-- Mostrar la matriz de costos en el paso final -->
+      <div v-if="assignmentSteps.currentStep?.isFinal && assignmentSteps.finalResult?.assignment" class="assignment-result-vector">
+        <strong>Asignación Óptima:</strong>
+        <ul>
+          <li v-for="(item, index) in assignmentSteps.finalResult.assignment" :key="index">
+            {{ getNodeLabel(item.u) }} → {{ getNodeLabel(item.v) }} (Costo: <strong>{{ item.cost }}</strong>)
+          </li>
+        </ul>
+        <strong class="total-cost">Costo Total: {{ assignmentSteps.finalResult.duration }}</strong>
+      </div>
+
       <div class="matrix-wrap" style="margin-top: 1rem;">
         <table class="matrix-table assignment-matrix">
           <thead>
@@ -220,18 +232,33 @@ function onRequestAddNode({ position }) {
 }
 
 function onRequestAddEdge({ sourceId, targetId }) {
-  const nodes = graphRef.value.getGraphData().nodes;
+  const { nodes, edges } = graphRef.value.getGraphData();
   const sourceNode = nodes.find(n => n.id === sourceId);
   const targetNode = nodes.find(n => n.id === targetId);
+
   if (sourceNode.data.isSetU === targetNode.data.isSetU) {
     alert('Error: Solo se pueden crear aristas entre nodos de diferentes conjuntos (U y V).');
     graphRef.value.resetEdgeSelection();
     return;
   }
-  forms.addEdge.sourceId = sourceId;
-  forms.addEdge.targetId = targetId;
-  forms.addEdge.weight = 1;
-  modals.addEdge.visible = true;
+
+  // Verificar si ya existe una arista entre estos nodos
+  const existingEdge = edges.find(e =>
+    (e.source === sourceId && e.target === targetId) ||
+    (e.source === targetId && e.target === sourceId)
+  );
+
+  if (existingEdge) {
+    // Si ya existe, abrir el modal de edición en lugar de creación
+    onRequestEditEdge(existingEdge);
+    graphRef.value.resetEdgeSelection();
+  } else {
+    // Si no existe, proceder a crear una nueva
+    forms.addEdge.sourceId = sourceId;
+    forms.addEdge.targetId = targetId;
+    forms.addEdge.weight = 1;
+    modals.addEdge.visible = true;
+  }
 }
 
 function closeAddEdge() { modals.addEdge.visible = false; graphRef.value.resetEdgeSelection(); }
@@ -254,7 +281,7 @@ function submitConfirmDelete() { graphRef.value.deleteElement(forms.delete.id); 
 function openConfirmClear() { modals.confirmClear.visible = true; }
 function submitConfirmClear() { graphRef.value.clearAll(); modals.confirmClear.visible = false; }
 
-function clearHighlight() { graphRef.value.clearCriticalCPM(); }
+function clearHighlight() { graphRef.value.clearHighlight(); }
 
 // Matriz, Exportar, Importar
 function defaultExportName() {
@@ -358,13 +385,12 @@ function getNodeLabel(nodeId) {
   if (!data) return nodeId;
   return data.nodes.find(n => n.id === nodeId)?.label || nodeId;
 }
-
 function closeAssignmentSteps() { modals.assignmentSteps.visible = false; }
 function nextStep() { if (assignmentSteps.stepIndex < assignmentSteps.steps.length - 1) { assignmentSteps.stepIndex++; assignmentSteps.currentStep = assignmentSteps.steps[assignmentSteps.stepIndex]; } }
 function prevStep() { if (assignmentSteps.stepIndex > 0) { assignmentSteps.stepIndex--; assignmentSteps.currentStep = assignmentSteps.steps[assignmentSteps.stepIndex]; } }
 function isStarred(row, col) { return assignmentSteps.currentStep?.stars?.some(s => s.row === row && s.col === col); }
 function formatMatrixValue(val) { return Number.isFinite(val) ? val : '∞'; }
-function finishAssignment() { closeAssignmentSteps(); graphRef.value.showCriticalCPM(assignmentSteps.finalResult); }
+function finishAssignment() { closeAssignmentSteps(); graphRef.value.highlightAssignment(assignmentSteps.finalResult); }
 </script>
 
 <style>
@@ -388,4 +414,16 @@ function finishAssignment() { closeAssignmentSteps(); graphRef.value.showCritica
 .step-counter {
   font-size: 0.9rem; color: var(--muted);
 }
+.matrix-result { margin-bottom: 1rem; }
+.matrix-result pre { font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; background-color: #00000030; padding: 8px; border-radius: 4px; }
+
+.assignment-result-vector {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #00000030;
+  border-radius: 8px;
+}
+.assignment-result-vector ul { list-style: none; padding-left: 0; }
+.assignment-result-vector li { margin-bottom: 4px; }
+.total-cost { display: block; margin-top: 1rem; border-top: 1px solid #4a5568; padding-top: 0.5rem; }
 </style>
