@@ -24,7 +24,10 @@ export function munkres(matrix, steps) {
   for (let j = 0; j < n; j++) {
     let minVal = Infinity;
     for (let i = 0; i < n; i++) {
-      minVal = Math.min(minVal, C[i][j]);
+      // Se debe ignorar Infinity al buscar el mínimo de la columna
+      if (C[i][j] < minVal) {
+        minVal = C[i][j];
+      }
     }
     if (minVal > 0 && minVal !== Infinity) {
       for (let i = 0; i < n; i++) {
@@ -37,8 +40,8 @@ export function munkres(matrix, steps) {
   let assignment = [];
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    // Paso 3: Encontrar una asignación inicial de ceros
-    const stars = findStarAssignment(C);
+    // Paso 3 & 4: Encontrar una asignación de ceros y cubrir columnas
+    const { stars, rowCover, colCover } = findStarAssignment(C);
     const coveredCols = new Set();
     stars.forEach(star => coveredCols.add(star.col));
 
@@ -54,8 +57,10 @@ export function munkres(matrix, steps) {
       break;
     }
 
-    // Paso 4: Cubrir todos los ceros con el mínimo número de líneas
-    let { coveredRows, coveredCols: finalCoveredCols } = coverZeros(C, stars);
+    // Las coberturas vienen de la fase de primado/estrella
+    const coveredRows = new Set(rowCover.map((isCovered, i) => isCovered ? i : -1).filter(i => i > -1));
+    const finalCoveredCols = new Set(colCover.map((isCovered, i) => isCovered ? i : -1).filter(i => i > -1));
+
     
     steps.push({
       title: 'Cubrir Ceros',
@@ -122,85 +127,86 @@ export function munkres(matrix, steps) {
   return assignment;
 }
 
-function findStarAssignment(matrix) {
+function findStarAssignment(matrix) { // Esta función ahora también cubre los ceros
   const n = matrix.length;
+  const C = matrix;
   const stars = [];
-  const rowStars = new Array(n).fill(-1);
-  const colStars = new Array(n).fill(-1);
+  const primes = []; // {row, col}
+  const rowCover = new Array(n).fill(false);
+  const colCover = new Array(n).fill(false);
 
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      if (matrix[i][j] === 0 && rowStars[i] === -1 && colStars[j] === -1) {
-        stars.push({ row: i, col: j });
-        rowStars[i] = j;
-        colStars[j] = i;
+  // Encuentra una estrella en cada fila si es posible
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (C[r][c] === 0 && !colCover[c]) {
+        stars.push({ row: r, col: c });
+        colCover[c] = true;
+        break;
       }
     }
   }
-  return stars;
-}
 
-function coverZeros(matrix, stars) {
-  const n = matrix.length;
-  const coveredCols = new Set(stars.map(s => s.col));
-  const coveredRows = new Set();
+  colCover.fill(false); // Reset
 
-  let changed = true;
   // eslint-disable-next-line no-constant-condition
-  while (changed) {
-    changed = false;
-    // Marcar filas sin asignación
-    const unmarkedRows = new Set();
-    const rowStars = new Map(stars.map(s => [s.row, s.col]));
-    for (let i = 0; i < n; i++) {
-      if (!rowStars.has(i)) {
-        unmarkedRows.add(i);
-      }
-    }
+  while (stars.length < n) { // Continuar hasta que todas las columnas estén cubiertas por estrellas
+    // Cubre las columnas que tienen estrellas
+    stars.forEach(s => colCover[s.col] = true);
+    if (stars.length >= n) break;
 
-    const markedRows = new Set();
-    const markedCols = new Set();
-
-    // Marcar filas sin asignación
-    for (let i = 0; i < n; i++) {
-      if (!rowStars.has(i)) markedRows.add(i);
-    }
-
-    let newMark = true;
-    // eslint-disable-next-line no-constant-condition
-    while (newMark) {
-      newMark = false;
-      // Marcar columnas con ceros en filas marcadas
-      for (const i of markedRows) {
-        for (let j = 0; j < n; j++) {
-          if (matrix[i][j] === 0 && !markedCols.has(j)) {
-            markedCols.add(j);
-            newMark = true;
+    let primedZero = null;
+    while (primedZero === null) {
+      // Encuentra un cero no cubierto y lo prima
+      let r = -1, c = -1;
+      outer: for (r = 0; r < n; r++) {
+        if (rowCover[r]) continue;
+        for (c = 0; c < n; c++) {
+          if (colCover[c]) continue;
+          if (C[r][c] === 0) {
+            primedZero = { row: r, col: c };
+            primes.push(primedZero);
+            break outer;
           }
         }
       }
 
-      // Marcar filas con asignaciones en columnas marcadas
-      const colStars = new Map(stars.map(s => [s.col, s.row]));
-      for (const j of markedCols) {
-        if (colStars.has(j)) {
-          const i = colStars.get(j);
-          if (!markedRows.has(i)) {
-            markedRows.add(i);
-            newMark = true;
-          }
-        }
-      }
-    }
+      if (primedZero === null) break; // No más ceros, ir a ajustar matriz
 
-    // Las líneas de cobertura son las filas NO marcadas y las columnas SÍ marcadas.
-    for (let i = 0; i < n; i++) {
-      if (!markedRows.has(i)) {
-        coveredRows.add(i);
+      // Si hay una estrella en la fila del cero primado, cubrir la fila y descubrir la columna de la estrella
+      const starInRow = stars.find(s => s.row === primedZero.row);
+      if (starInRow) {
+        rowCover[primedZero.row] = true;
+        colCover[starInRow.col] = false;
+      } else {
+        // No hay estrella en la fila, construir una ruta aumentante
+        let path = [primedZero];
+        let cur = primedZero;
+        while (cur) { // Continuar mientras haya un elemento actual en la ruta
+          const starInCol = stars.find(s => s.col === cur.col);
+          if (!starInCol) break;
+          path.push(starInCol);
+          const primeInRow = primes.find(p => p.row === starInCol.row);
+          path.push(primeInRow);
+          cur = primeInRow;
+        }
+
+        // Invertir la ruta
+        path.forEach((p, i) => {
+          if (i % 2 === 0) { // Primes se convierten en stars
+            const starToRemove = stars.findIndex(s => s.col === p.col);
+            if (starToRemove > -1) stars.splice(starToRemove, 1);
+            stars.push({ row: p.row, col: p.col });
+          }
+        });
+
+        // Limpiar y reiniciar
+        primes.length = 0;
+        rowCover.fill(false);
+        colCover.fill(false);
+        primedZero = null; // Para salir del bucle interno y volver a cubrir columnas
       }
     }
-    return { coveredRows, coveredCols: markedCols };
+    if (primedZero === null) break; // No se encontraron más ceros, salir para ajustar matriz
   }
-
-  return { coveredRows, coveredCols };
+  return { stars, rowCover, colCover };
 }
