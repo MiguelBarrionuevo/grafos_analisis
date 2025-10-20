@@ -14,6 +14,7 @@
       @open-matrix="openMatrixModal"
       @export-graph="openExportModal"
       @import-graph="openImportModal"
+      @open-sort="switchToSortView"
       @open-help="openHelp"
       @run-johnson="openJohnsonChoice"
       @clear-highlight="clearHighlight"
@@ -351,6 +352,8 @@
 
   <!-- Vista dedicada para Reconstruir Árboles -->
   <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
+  <!-- Vista dedicada para Ordenamiento -->
+  <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
 </template>
 
 <script setup>
@@ -370,6 +373,7 @@ const BinaryTreeView = defineAsyncComponent(() =>
 const ReconstructTreeView = defineAsyncComponent(() =>
   import('./components/ReconstructTreeView.vue')
 );
+const SortView = defineAsyncComponent(() => import('./components/SortView.vue'));
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
@@ -378,6 +382,7 @@ const currentView = ref('main');
 const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
+const switchToSortView = () => { currentView.value = 'sort'; };
 const switchToMainView = () => { currentView.value = 'main'; };
 
 // === Toggle de modo Johnson estricto ===
