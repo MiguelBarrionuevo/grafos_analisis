@@ -79,6 +79,21 @@ watch(() => props.elements, (newElements) => {
   if (cy) {
     cy.elements().remove();
     cy.add(newElements);
+    
+    // Ayuda al layout a ordenar los hijos correctamente.
+    // El hijo 'left' debe ir a la izquierda (order: 0) y 'right' a la derecha (order: 1).
+    // Esto es necesario porque el layout 'breadthfirst' no tiene una noción inherente de "izquierda" o "derecha".
+    cy.edges().forEach(edge => {
+      const child = edge.target();
+      const position = edge.data('position');
+
+      if (position === 'left') {
+        child.scratch('breadthfirst', { order: 0 });
+      } else if (position === 'right') {
+        child.scratch('breadthfirst', { order: 1 });
+      }
+    });
+
     cy.layout(layoutOptions).run();
     cy.fit();
   }

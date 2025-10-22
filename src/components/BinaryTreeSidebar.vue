@@ -73,14 +73,23 @@
         </div>
     </div>
 
+    <hr class="sep" />
+    <!-- Ayuda -->
+    <div class="group">
+        <h2>Ayuda</h2>
+        <button class="button" @click="$emit('open-help')">
+            <i class="fas fa-question-circle"></i> Guía de Funcionamiento
+        </button>
+    </div>
+
   </aside>
 </template>
 
 <script setup>
-import { ref, reactive, defineEmits } from 'vue';
-/* global defineProps */
+import { ref, reactive } from 'vue';
+/* global defineProps, defineEmits */
 
-const emit = defineEmits(['back-to-main', 'insert-node', 'reset-tree', 'generate-random', 'run-traversal', 'stop-traversal', 'import-tree', 'export-tree']);
+const emit = defineEmits(['back-to-main', 'insert-node', 'reset-tree', 'generate-random', 'run-traversal', 'stop-traversal', 'import-tree', 'export-tree', 'open-help']);
 
 const props = defineProps({
     nodeCount: { type: Number, default: 0 },

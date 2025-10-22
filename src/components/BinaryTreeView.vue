@@ -16,6 +16,7 @@
       @stop-traversal="handleStopTraversal"
       @import-tree="handleImport"
       @export-tree="handleExport"
+      @open-help="openHelpGuide"
       :node-count="nodeCount"
       :tree-height="treeHeight"
       :is-random-mode="isRandomMode"
@@ -28,6 +29,24 @@
       </div>
       <input type="file" ref="fileInput" @change="onFileSelected" style="display: none" accept="application/json" />
     </main>
+
+    <!-- VENTANA MODAL PARA LA GUÍA DE AYUDA -->
+    <div v-if="isHelpVisible" class="guide-modal-overlay" @click.self="closeHelpGuide">
+      <div class="guide-modal-content">
+        <button @click="closeHelpGuide" class="close-guide-button">&times;</button>
+        <h3><i class="fas fa-book-open"></i> Guía de Funcionamiento: Construir Árbol</h3>
+        <p>
+          Esta sección te permite construir un Árbol Binario de Búsqueda (BST).
+        </p>
+        <ul>
+          <li><strong>Insertar Nodo:</strong> Escribe un número en la barra lateral y presiona "Insertar". El valor se colocará siguiendo la regla: si es menor que un nodo, va a la izquierda; si es mayor, va a la derecha.</li>
+          <li><strong>Recorridos:</strong> Usa los botones de la barra lateral para visualizar los recorridos (In-Order, Pre-Order, Post-Order) en el árbol.</li>
+          <li><strong>Generar Aleatorio:</strong> Crea un árbol con valores aleatorios.</li>
+          <li><strong>Importar/Exportar:</strong> Guarda o carga la estructura de tu árbol en un archivo <code>.json</code>.</li>
+        </ul>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -43,6 +62,12 @@ const BinaryTreeSidebar = defineAsyncComponent(() =>
 const BinaryTreeCanvas = defineAsyncComponent(() =>
   import('./BinaryTreeCanvas.vue')
 );
+
+// --- ESTADO PARA LA NUEVA GUÍA DE AYUDA ---
+const isHelpVisible = ref(false);
+const openHelpGuide = () => { isHelpVisible.value = true; };
+const closeHelpGuide = () => { isHelpVisible.value = false; };
+// -----------------------------------------
 
 const canvasRef = ref(null);
 const fileInput = ref(null);
@@ -155,9 +180,45 @@ const onFileSelected = (event) => {
 };
 
 </script>
-
 <style scoped>
-.main { position: relative; }
+.main {
+  position: relative;
+}
+
+.guide-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.guide-modal-content {
+  background-color: #fff;
+  padding: 20px 30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  color: #333;
+}
+
+.close-guide-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #888;
+}
+
 .traversal-result {
   position: absolute;
   bottom: 20px;
