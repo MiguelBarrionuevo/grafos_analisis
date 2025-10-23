@@ -102,6 +102,7 @@
         </div>
       </div>
     </main>
+
     <!-- Help modal (mejorado) -->
     <div v-if="helpVisible" class="help-overlay" role="dialog" aria-modal="true" @click.self="helpVisible = false">
       <aside class="help-modal" role="document" aria-labelledby="help-title">
@@ -409,6 +410,5 @@ onGenerate();
 .help-footer ul { margin:8px 0 0 18px; }
 
 @media (max-width:720px){ .help-grid { grid-template-columns:1fr; } .help-modal{ padding:14px; } }
-
 
 </style>
