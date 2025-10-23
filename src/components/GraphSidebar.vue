@@ -73,6 +73,12 @@
         <h2>Asignación</h2>
         <button class="button" @click="$emit('run-assignment')">⚖️ Asignación</button>
       </div>
+      <div class="subgroup" style="margin-top: 10px;">
+        <h2>Ordenamiento</h2>
+        <button class="button" @click="$emit('open-sort')">
+          🔀 Sort
+        </button>
+      </div>
     </div>
     <hr class="sep" />
 
