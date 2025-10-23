@@ -1,7 +1,10 @@
 <template>
   <div class="sort-view app-layout">
-    <header class="header">
-      <h1>Visualizador de Ordenamiento — Sort</h1>
+    <header class="header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <h1 style="margin:0">Visualizador de Ordenamiento — Sort</h1>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="button" @click="helpVisible = true">❓ Ayuda</button>
+      </div>
     </header>
 
     <aside class="sidebar">
@@ -99,6 +102,62 @@
         </div>
       </div>
     </main>
+    <!-- Help modal (mejorado) -->
+    <div v-if="helpVisible" class="help-overlay" role="dialog" aria-modal="true" @click.self="helpVisible = false">
+      <aside class="help-modal" role="document" aria-labelledby="help-title">
+        <div class="help-header">
+          <h3 id="help-title">Ayuda — Pantalla Sort</h3>
+          <button ref="helpCloseBtn" class="help-close" @click="helpVisible = false" aria-label="Cerrar ayuda">✕</button>
+        </div>
+
+        <div class="help-content">
+          <p class="lead">Visualiza algoritmos de ordenamiento paso a paso con animaciones tipo burbuja y control total sobre velocidad y entrada de datos.</p>
+
+          <div class="help-grid">
+            <div class="help-item">
+              <h4>Modo</h4>
+              <p>Selecciona <em>Aleatorio</em> para generar un arreglo por parámetros o <em>Manual</em> para escribir los números separados por comas.</p>
+            </div>
+            <div class="help-item">
+              <h4>Generar</h4>
+              <p>Crea el arreglo actual según el modo seleccionado. Útil para volver a reiniciar la visualización.</p>
+            </div>
+            <div class="help-item">
+              <h4>Repetir</h4>
+              <p>Reproduce la última secuencia de pasos que generó el algoritmo (si existe).</p>
+            </div>
+            <div class="help-item">
+              <h4>Ascendente / Descendente</h4>
+              <p>Ejecuta el algoritmo seleccionado en el sentido elegido y anima cada paso con el delay configurado.</p>
+            </div>
+            <div class="help-item">
+              <h4>Importar / Exportar</h4>
+              <p>Importa o exporta arreglos en formato JSON. Soporta tanto un array simple como un objeto { numbers: [...] }.</p>
+            </div>
+            <div class="help-item">
+              <h4>Algoritmos</h4>
+              <p>Elige entre <strong>Selection</strong>, <strong>Insertion</strong>, <strong>Merge</strong> o <strong>Shell</strong>. Cada uno genera una secuencia de snapshots que se reproducen.</p>
+            </div>
+            <div class="help-item">
+              <h4>Velocidad</h4>
+              <p>Controla el delay (ms) entre pasos. Ajusta para obtener una reproducción más lenta o más rápida.</p>
+            </div>
+            <div class="help-item">
+              <h4>Área principal</h4>
+              <p>Las burbujas representan valores; su tamaño es proporcional al valor. Se reposicionan y animan durante los pasos.</p>
+            </div>
+          </div>
+
+          <div class="help-footer">
+            <h4>Consejos</h4>
+            <ul>
+              <li>Para probar un arreglo concreto, usa <em>Manual</em> y pega los números separados por comas.</li>
+              <li>Si el arreglo es muy grande, reduce la cantidad o aumenta el delay para apreciar mejor cada paso.</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -119,6 +178,18 @@ const lastSteps = ref([]); // array of snapshots
 
 const isPlaying = ref(false);
 const playAbort = { aborted: false };
+const helpVisible = ref(false);
+const helpCloseBtn = ref(null);
+
+function onKeydown(e){ if (e.key === 'Escape' && helpVisible.value) { helpVisible.value = false; } }
+
+watch(helpVisible, async (v)=>{
+  if (v) {
+    await nextTick();
+    if (helpCloseBtn.value && helpCloseBtn.value.focus) helpCloseBtn.value.focus();
+    window.addEventListener('keydown', onKeydown);
+  } else { window.removeEventListener('keydown', onKeydown); }
+});
 
 const canvas = ref(null);
 let resizeObserver = null;
@@ -322,5 +393,22 @@ onGenerate();
 .info-panel { display:flex; gap:12px; }
 .info-panel .box { background:#fff; border:1px solid #e6eef9; padding:12px; border-radius:8px; width:100%; }
 .algorithms .button { display:block; margin-bottom:8px; width:100%; text-align:left; }
+
+.help-overlay { position: fixed; inset: 0; background: rgba(2,6,23,0.55); display:flex; align-items:center; justify-content:center; z-index:1200; padding:24px; }
+.help-modal { background: linear-gradient(180deg,#ffffff,#fbfdff); width: min(900px, 96%); max-height: 86vh; overflow:auto; padding:20px; border-radius:12px; box-shadow:0 20px 60px rgba(2,6,23,0.35); border: 1px solid rgba(3,102,161,0.06); }
+.help-header { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #eef6fb; padding-bottom:12px; margin-bottom:12px; }
+.help-header h3 { margin:0; font-size:18px; color:#052030; }
+.help-close { background:#071727; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700; }
+.help-close:focus { outline:2px solid #90cdf4; }
+.help-content .lead { color:#0b3745; margin-bottom:12px; }
+.help-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.help-item { background: #fff; border:1px solid #eef6fb; padding:12px; border-radius:8px; }
+.help-item h4 { margin:0 0 6px 0; font-size:15px; }
+.help-item p { margin:0; color:#334e5a; font-size:13px; }
+.help-footer { margin-top:14px; padding-top:8px; border-top:1px dashed #eef6fb; }
+.help-footer ul { margin:8px 0 0 18px; }
+
+@media (max-width:720px){ .help-grid { grid-template-columns:1fr; } .help-modal{ padding:14px; } }
+
 
 </style>

@@ -11,12 +11,30 @@
       @reset="handleReset"
       @import-data="handleImport"
       @export-data="handleExport"
+      @open-help="openHelpGuide"
     />
 
     <main class="main">
       <BinaryTreeCanvas ref="canvasRef" :elements="treeElements" />
       <input type="file" ref="fileInput" @change="onFileSelected" style="display: none" accept="application/json" />
     </main>
+
+    <!-- VENTANA MODAL PARA LA GUÍA DE AYUDA -->
+    <div v-if="isHelpVisible" class="guide-modal-overlay" @click.self="closeHelpGuide">
+      <div class="guide-modal-content">
+        <button @click="closeHelpGuide" class="close-guide-button">&times;</button>
+        <h3><i class="fas fa-book-open"></i> Guía de Funcionamiento: Reconstruir Árbol</h3>
+        <p>
+          Esta sección reconstruye un árbol binario a partir de sus recorridos.
+        </p>
+        <ul>
+          <li><strong>Requisito:</strong> Necesitas dos recorridos para reconstruir un árbol de forma única: <strong>In-Order</strong> + <strong>Pre-Order</strong>, o <strong>In-Order</strong> + <strong>Post-Order</strong>.</li>
+          <li><strong>Funcionamiento:</strong> El algoritmo identifica la raíz del árbol usando el recorrido Pre-Order (primer elemento) o Post-Order (último elemento). Luego, usa el In-Order para determinar qué nodos pertenecen al subárbol izquierdo y cuáles al derecho.</li>
+          <li><strong>Uso:</strong> Ingresa los recorridos en los campos de la barra lateral (separados por comas) y ejecuta el algoritmo para ver el árbol resultante.</li>
+        </ul>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -33,6 +51,12 @@ const ReconstructTreeSidebar = defineAsyncComponent(() =>
 const BinaryTreeCanvas = defineAsyncComponent(() =>
   import('./BinaryTreeCanvas.vue')
 );
+
+// --- ESTADO PARA LA NUEVA GUÍA DE AYUDA ---
+const isHelpVisible = ref(false);
+const openHelpGuide = () => { isHelpVisible.value = true; };
+const closeHelpGuide = () => { isHelpVisible.value = false; };
+// -----------------------------------------
 
 const canvasRef = ref(null);
 const fileInput = ref(null);
@@ -114,3 +138,43 @@ const onFileSelected = (event) => {
   event.target.value = '';
 };
 </script>
+
+<style scoped>
+.main {
+  position: relative;
+}
+
+.guide-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.guide-modal-content {
+  background-color: #fff;
+  padding: 20px 30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  color: #333;
+}
+
+.close-guide-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #888;
+}
+</style>

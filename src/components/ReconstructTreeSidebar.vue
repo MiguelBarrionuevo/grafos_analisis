@@ -48,13 +48,22 @@
         <button class="button" @click="$emit('export-data')">💾 Exportar</button>
       </div>
     </div>
+
+    <hr class="sep" />
+    <!-- Ayuda -->
+    <div class="group">
+        <h2>Ayuda</h2>
+        <button class="button" @click="$emit('open-help')">
+            <i class="fas fa-question-circle"></i> Guía de Funcionamiento
+        </button>
+    </div>
   </aside>
 </template>
 
 <script setup>
 import { ref, reactive, defineEmits } from 'vue';
 
-const emit = defineEmits(['back-to-main', 'reconstruct', 'reset', 'import-data', 'export-data']);
+const emit = defineEmits(['back-to-main', 'reconstruct', 'reset', 'import-data', 'export-data', 'open-help']);
 
 const method = ref('in-pre');
 const traversals = reactive({

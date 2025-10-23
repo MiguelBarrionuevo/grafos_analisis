@@ -64,6 +64,15 @@
         <button class="button" @click="$emit('clear-highlight')">✨ Quitar resaltado</button>
       </div>
     </div>
+
+    <hr class="sep" />
+    <!-- Ayuda -->
+    <div class="group">
+        <h2>Ayuda</h2>
+        <button class="button" @click="$emit('open-help')">
+            <i class="fas fa-question-circle"></i> Guía de Funcionamiento
+        </button>
+    </div>
   </aside>
 </template>
 
@@ -76,7 +85,7 @@ const props = defineProps({
   mode: { type: String, default: MODES.ADD_NODE_U },
 });
 
-defineEmits(['set-mode', 'run-assignment', 'clear-highlight', 'clear-all', 'back-to-main', 'open-matrix', 'export-graph', 'import-graph']);
+defineEmits(['set-mode', 'run-assignment', 'clear-highlight', 'clear-all', 'back-to-main', 'open-matrix', 'export-graph', 'import-graph', 'open-help']);
 
 const modeLabel = computed(() => {
   switch (props.mode) {

@@ -14,6 +14,7 @@
       @open-matrix="openMatrixModal"
       @export-graph="openExportModal"
       @import-graph="openImportModal"
+      @open-help="openHelpGuide"
       @back-to-main="$emit('back-to-main')"
     />
 
@@ -175,6 +176,23 @@
         <button v-if="assignmentSteps.currentStep?.isFinal" class="button" @click="finishAssignment">Finalizar y Resaltar</button>
       </div>
     </GraphModal>
+
+    <!-- VENTANA MODAL PARA LA GUÍA DE AYUDA -->
+    <div v-if="isHelpVisible" class="guide-modal-overlay" @click.self="closeHelpGuide">
+      <div class="guide-modal-content">
+        <button @click="closeHelpGuide" class="close-guide-button">&times;</button>
+        <h3><i class="fas fa-book-open"></i> Guía de Funcionamiento: Asignación</h3>
+        <p>
+          Esta sección resuelve el <strong>Problema de Asignación</strong> usando el Algoritmo Húngaro.
+        </p>
+        <ul>
+          <li><strong>Requisito:</strong> El grafo debe ser <strong>bipartito</strong>. Esto significa que los nodos se pueden dividir en dos conjuntos (U y V) donde las aristas solo conectan un nodo de U con uno de V.</li>
+          <li><strong>Funcionamiento:</strong> El algoritmo construye una matriz de costos a partir de los pesos de las aristas. Luego, busca el conjunto de emparejamientos (asignaciones) que minimice (o maximice) el costo total.</li>
+          <li><strong>Uso:</strong> Define tu grafo bipartito en esta vista, asigna costos a las aristas y luego ejecuta el algoritmo desde la barra lateral.</li>
+        </ul>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -188,6 +206,12 @@ import { ASSIGNMENT_MODES as MODES } from '../constants/assignmentModes';
 import { computeAssignment } from '../utils/assignment';
 
 defineEmits(['back-to-main']);
+
+// --- ESTADO PARA LA NUEVA GUÍA DE AYUDA ---
+const isHelpVisible = ref(false);
+const openHelpGuide = () => { isHelpVisible.value = true; };
+const closeHelpGuide = () => { isHelpVisible.value = false; };
+// -----------------------------------------
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE_U); // Modo inicial
@@ -426,4 +450,25 @@ function finishAssignment() { closeAssignmentSteps(); graphRef.value.highlightAs
 .assignment-result-vector ul { list-style: none; padding-left: 0; }
 .assignment-result-vector li { margin-bottom: 4px; }
 .total-cost { display: block; margin-top: 1rem; border-top: 1px solid #4a5568; padding-top: 0.5rem; }
+
+.guide-modal-content {
+  background-color: #fff;
+  padding: 20px 30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  color: #333;
+}
+
+.close-guide-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #888;
+}
 </style>
