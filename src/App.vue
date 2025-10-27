@@ -21,6 +21,7 @@
       @toggle-johnson-mode="setJohnsonMode"
       @open-build-tree="switchToBinaryTreeView"
       @open-reconstruct-tree="switchToReconstructTreeView"
+      @open-northwest="switchToNorthwestView"
     />
 
     <main class="main">
@@ -341,8 +342,6 @@
         <p><em>Nota:</em> Si alguna de estas condiciones no se cumple, el cálculo no será válido y el programa te lo indicará.</p>
       </div>
     </GraphModal>
-
-
   </div>
   <!-- Vista dedicada para el algoritmo de Asignación -->
   <AssignmentView v-else-if="currentView === 'assignment'" @back-to-main="switchToMainView" />
@@ -354,6 +353,8 @@
   <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
   <!-- Vista dedicada para Ordenamiento -->
   <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
+  <!-- Vista dedicada para Algoritmo Northwest -->
+  <NorthwestView v-else-if="currentView === 'northwest'" @back-to-main="switchToMainView" />
 </template>
 
 <script setup>
@@ -363,7 +364,7 @@ import GraphSidebar from './components/GraphSidebar.vue';
 import GraphCanvas from './components/GraphCanvas.vue';
 import GraphModal from './components/GraphModal.vue';
 import { MODES } from './constants/modes';
-import { computeCPM, computeShortestPathDAG } from './utils/cpm';
+import { computeCPM, computeShortestPathDAG } from './utils/cpm'
 const AssignmentView = defineAsyncComponent(() =>
   import('./components/AssignmentView.vue')
 );
@@ -374,6 +375,7 @@ const ReconstructTreeView = defineAsyncComponent(() =>
   import('./components/ReconstructTreeView.vue')
 );
 const SortView = defineAsyncComponent(() => import('./components/SortView.vue'));
+const NorthwestView = defineAsyncComponent(() => import('./components/NorthwestView.vue'));
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
@@ -383,6 +385,7 @@ const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
 const switchToSortView = () => { currentView.value = 'sort'; };
+const switchToNorthwestView = () => { currentView.value = 'northwest'; };
 const switchToMainView = () => { currentView.value = 'main'; };
 
 // === Toggle de modo Johnson estricto ===
