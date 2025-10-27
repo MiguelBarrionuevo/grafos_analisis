@@ -1,15 +1,12 @@
+<!-- src/views/SortView.vue -->
 <template>
-  <div class="sort-view app-layout">
-    <header class="header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <h1 style="margin:0">Visualizador de Ordenamiento — Sort</h1>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="button" @click="helpVisible = true">❓ Ayuda</button>
-      </div>
+  <div class="app-layout">
+    <header class="header">
+      <h1>Visualizador de Ordenamiento - Sort</h1>
     </header>
-
     <aside class="sidebar">
       <div class="group">
-        <button class="button" @click="$emit('back-to-main')">← Volver</button>
+        <button class="button" @click="$emit('back-to-main')">← Volver al Editor Principal</button>
       </div>
 
       <hr class="sep" />
@@ -78,19 +75,30 @@
         <input type="range" min="30" max="1000" v-model.number="stepDelay" />
         <small>Delay por paso: {{stepDelay}} ms</small>
       </div>
+      
+      <hr class="sep" />
 
+      <div class="group">
+        <button class="button" @click="helpVisible = true">❓ Ayuda</button>
+      </div>
     </aside>
 
     <main class="main">
-      <div class="canvas-wrap">
+      <!-- CAMBIO: usar sort-canvas-wrap para no heredar estilos del editor de grafos -->
+      <div class="sort-canvas-wrap">
         <div ref="canvas" class="bubble-canvas">
-          <div v-for="(v, i) in currentArray" :key="bubbleKey(i, v)" class="bubble"
-            :style="bubbleStyle(i, v)">
+          <div
+            v-for="(v, i) in currentArray"
+            :key="bubbleKey(i, v)"
+            class="bubble"
+            :style="bubbleStyle(i, v)"
+            :class="{ active: isActive(i) }"
+          >
             <div class="bubble-label">{{ v }}</div>
           </div>
         </div>
       </div>
-
+      <hr class="sep" />
       <div class="info-panel">
         <div class="box">
           <h3>Antes:</h3>
@@ -99,6 +107,12 @@
         <div class="box">
           <h3>Después:</h3>
           <pre>{{ pretty(sortedArray) }}</pre>
+        </div>
+        <div class="box">
+          <h3>Tiempos</h3>
+          
+          <div>Reproducción: <strong>{{ formatTime(elapsedPlaybackMs) }}</strong> <span v-if="playAbort.aborted" style="color:#c2410c; font-weight:600;">(interrumpido)</span></div>
+          <div style="margin-top:6px; color:#475569; font-size:12px"></div>
         </div>
       </div>
     </main>
@@ -177,10 +191,34 @@ const currentArray = ref([]);
 const sortedArray = ref([]);
 const lastSteps = ref([]); // array of snapshots
 
+// Tiempos (ms)
+// elapsedAlgoMs: tiempo que tarda en generar los snapshots (solo algoritmo, sin animaciones)
+// elapsedPlaybackMs: tiempo que tarda la reproducción/animación (incluye delays)
+const elapsedAlgoMs = ref(null);
+const elapsedPlaybackMs = ref(null);
+
 const isPlaying = ref(false);
 const playAbort = { aborted: false };
 const helpVisible = ref(false);
 const helpCloseBtn = ref(null);
+
+// 1) Estado para índices activos en el paso actual
+const activeIndices = ref(new Set());
+
+// 2) Helper para el binding de clase
+function isActive(i) {
+  return activeIndices.value.has(i);
+}
+
+// 3) Detección simple de posiciones cambiadas entre dos snapshots
+function diffIndices(a, b) {
+  const n = Math.max(a.length, b.length);
+  const set = new Set();
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) set.add(i);
+  }
+  return set;
+}
 
 function onKeydown(e){ if (e.key === 'Escape' && helpVisible.value) { helpVisible.value = false; } }
 
@@ -215,17 +253,28 @@ function pretty(arr) { return JSON.stringify(arr); }
 
 function bubbleStyle(i, v) {
   const n = currentArray.value.length || 1;
-  const gap = canvasSize.width / Math.max(n,1);
+  const gap = canvasSize.width / Math.max(n, 1); // ancho de celda por burbuja
+
+  // radios base
+  const MIN_R = 14;
+  const MAX_R = 36;
+
+  // El radio máximo no puede exceder ~45% del ancho de su celda (evita solape)
+  const MAX_R_FIT = Math.min(MAX_R, gap * 0.45);
+
+  // mapeo lineal valor → radio dentro [MIN_R, MAX_R_FIT]
+  const minVal = Math.min(...currentArray.value, 0);
+  const maxVal = Math.max(...currentArray.value, 1);
+  const range = Math.max(1, maxVal - minVal);
+  let r = MIN_R + ((v - minVal) / range) * (MAX_R_FIT - MIN_R);
+
   const x = gap * i + gap / 2;
-  const min = Math.min(...currentArray.value, 0);
-  const max = Math.max(...currentArray.value, 1);
-  const range = Math.max(1, max - min);
-  const r = 16 + ((v - min) / range) * 36; // radius
-  const top = canvasSize.height / 2;
+  const y = canvasSize.height / 2;
+
   return {
-    width: `${r*2}px`,
-    height: `${r*2}px`,
-    transform: `translate(${x - r}px, ${top - r}px)`
+    width: `${r * 2}px`,
+    height: `${r * 2}px`,
+    transform: `translate(${x - r}px, ${y - r}px)`
   };
 }
 
@@ -313,17 +362,37 @@ function snapshotsShell(arr, asc=true){
 async function playSteps(steps){
   if (!steps || !steps.length) return;
   isPlaying.value = true; playAbort.aborted = false;
+
+  let prev = currentArray.value.slice(); // snapshot previo para comparar
+
   for (let i=0;i<steps.length;i++){
     if (playAbort.aborted) break;
+    const next = steps[i].slice();
     currentArray.value = steps[i].slice();
     await new Promise(r=>setTimeout(r, stepDelay.value));
+    activeIndices.value = diffIndices(prev, next);
+    currentArray.value = next;
+    await new Promise(r => setTimeout(r, stepDelay.value));
+
+    prev = next;
+
   }
   isPlaying.value = false; sortedArray.value = currentArray.value.slice();
+  // limpiar resaltado al terminar
+  activeIndices.value = new Set();
+  isPlaying.value = false;
+  sortedArray.value = currentArray.value.slice();
 }
 
 function stopPlay(){ playAbort.aborted = true; isPlaying.value = false; }
 
-function computeAndPlay(arr, algo, asc=true){
+function formatTime(ms){
+  if (ms === null || ms === undefined) return '-';
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms/1000).toFixed(3)} s`;
+}
+
+async function computeAndPlay(arr, algo, asc=true){
   if (!arr || !arr.length) return;
   let steps = [];
   if (algo === 'selection') steps = snapshotsSelection(arr, asc);
@@ -332,7 +401,19 @@ function computeAndPlay(arr, algo, asc=true){
   else if (algo === 'shell') steps = snapshotsShell(arr, asc);
   lastSteps.value = steps.slice();
   sortedArray.value = steps[steps.length-1].slice();
-  playSteps(steps);
+
+  // medir tiempo de ejecución del algoritmo (generación de snapshots)
+  const tAlgo0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  // steps ya generados arriba
+  const tAlgo1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  elapsedAlgoMs.value = Math.round(tAlgo1 - tAlgo0);
+
+  // medir tiempo: desde inicio de reproducción hasta que playSteps termine (incluye delays)
+  elapsedPlaybackMs.value = null;
+  const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  await playSteps(steps);
+  const t1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  elapsedPlaybackMs.value = Math.round(t1 - t0);
 }
 
 function onGenerate(){
@@ -340,15 +421,24 @@ function onGenerate(){
   let a = mode.value === 'random' ? generateRandomArray() : parseManual();
   originalArray.value = a.slice(); currentArray.value = a.slice(); sortedArray.value = [];
   lastSteps.value = [];
+  elapsedAlgoMs.value = null;
+  elapsedPlaybackMs.value = null;
 }
 
-function replay(){ if (lastSteps.value.length) { playSteps(lastSteps.value); } }
-
-function sortAsc(){ if (!originalArray.value.length) { onGenerate(); }
-  computeAndPlay(currentArray.value.slice(), algorithm.value, true);
+async function replay(){ 
+  if (!lastSteps.value.length) return;
+  elapsedPlaybackMs.value = null;
+  const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  await playSteps(lastSteps.value);
+  const t1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  elapsedPlaybackMs.value = Math.round(t1 - t0);
 }
-function sortDesc(){ if (!originalArray.value.length) { onGenerate(); }
-  computeAndPlay(currentArray.value.slice(), algorithm.value, false);
+
+async function sortAsc(){ if (!originalArray.value.length) { onGenerate(); }
+  await computeAndPlay(currentArray.value.slice(), algorithm.value, true);
+}
+async function sortDesc(){ if (!originalArray.value.length) { onGenerate(); }
+  await computeAndPlay(currentArray.value.slice(), algorithm.value, false);
 }
 
 function onImportClick(){ fileInput.value.click(); }
@@ -385,16 +475,60 @@ onGenerate();
 </script>
 
 <style scoped>
-.sort-view { display:flex; gap: 16px; }
-.sort-view .sidebar { width: 320px; padding: 12px; }
-.sort-view .main { flex: 1; display:flex; flex-direction:column; gap:12px; padding: 12px; }
-.bubble-canvas { position: relative; width: 100%; height: 360px; background: linear-gradient(180deg,#fff,#f7fbff); border-radius: 8px; border:1px solid #e6eef9; overflow: hidden; }
-.bubble { position: absolute; border-radius: 50%; background: linear-gradient(180deg,#7dd3fc,#38bdf8); display:flex; align-items:center; justify-content:center; color:#04263b; font-weight:700; transition: transform 300ms cubic-bezier(.2,.9,.3,1), width 300ms, height 300ms; box-shadow: 0 6px 18px rgba(3,105,161,0.12); }
-.bubble-label { font-size: 12px; padding: 2px 6px; }
-.info-panel { display:flex; gap:12px; }
-.info-panel .box { background:#fff; border:1px solid #e6eef9; padding:12px; border-radius:8px; width:100%; }
-.algorithms .button { display:block; margin-bottom:8px; width:100%; text-align:left; }
+/* Wrapper específico para Sort: evita colisión con .canvas-wrap global del editor de grafos */
+.sort-canvas-wrap{
+  position: relative;  /* NO absolute */
+  padding: 0;         /* sin padding extra */
+}
 
+/* Lienzo/burbujas */
+.bubble-canvas {
+  position: relative;
+  width: 100%;
+  height: 360px;
+  background: linear-gradient(180deg,#fff,#f7fbff);
+  border-radius: 8px;
+  border:1px solid #e6eef9;
+  overflow: hidden;
+}
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(180deg,#7dd3fc,#38bdf8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#04263b;
+  font-weight:700;
+  transition: transform 300ms cubic-bezier(.2,.9,.3,1), width 300ms, height 300ms, filter 200ms;
+  box-shadow: 0 6px 18px rgba(3,105,161,0.12);
+}
+.bubble-label { font-size: 12px; padding: 2px 6px; }
+
+.bubble.active {
+  /* aro externo + sombra más marcada */
+  box-shadow:
+    0 0 0 6px rgba(59,130,246,0.30),
+    0 16px 36px rgba(2,6,23,0.45);
+  filter: brightness(1.05);
+}
+
+/* Panel inferior */
+.info-panel { display:flex; gap:12px; }
+.info-panel .box { background:#fff; border:1px solid #e6eef9; padding:12px; border-radius:8px; width:100%;}
+
+/* Sidebar helpers */
+.algorithms .button { display:block; margin-bottom:8px; width:100%; text-align:left;}
+.info-panel .box h3 {
+  color: #0369a1; /* azul más intenso */
+}
+.info-panel .box pre {
+  color: #334e5a;
+  font-weight: 500;
+}
+
+
+/* Help modal */
 .help-overlay { position: fixed; inset: 0; background: rgba(2,6,23,0.55); display:flex; align-items:center; justify-content:center; z-index:1200; padding:24px; }
 .help-modal { background: linear-gradient(180deg,#ffffff,#fbfdff); width: min(900px, 96%); max-height: 86vh; overflow:auto; padding:20px; border-radius:12px; box-shadow:0 20px 60px rgba(2,6,23,0.35); border: 1px solid rgba(3,102,161,0.06); }
 .help-header { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #eef6fb; padding-bottom:12px; margin-bottom:12px; }
@@ -409,6 +543,8 @@ onGenerate();
 .help-footer { margin-top:14px; padding-top:8px; border-top:1px dashed #eef6fb; }
 .help-footer ul { margin:8px 0 0 18px; }
 
-@media (max-width:720px){ .help-grid { grid-template-columns:1fr; } .help-modal{ padding:14px; } }
-
+@media (max-width:720px){
+  .help-grid { grid-template-columns:1fr; }
+  .help-modal{ padding:14px; }
+}
 </style>

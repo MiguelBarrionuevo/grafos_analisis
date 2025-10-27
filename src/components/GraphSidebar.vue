@@ -79,6 +79,12 @@
           🔀 Sort
         </button>
       </div>
+      <div class="subgroup" style="margin-top: 10px;">
+        <h2>Transporte</h2>
+        <button class="button" @click="$emit('open-northwest')">
+          🚚 Algoritmo Northwest
+        </button>
+      </div>
     </div>
     <hr class="sep" />
 
