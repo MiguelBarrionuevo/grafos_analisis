@@ -108,6 +108,12 @@
           <h3>Después:</h3>
           <pre>{{ pretty(sortedArray) }}</pre>
         </div>
+        <div class="box">
+          <h3>Tiempos</h3>
+          
+          <div>Reproducción: <strong>{{ formatTime(elapsedPlaybackMs) }}</strong> <span v-if="playAbort.aborted" style="color:#c2410c; font-weight:600;">(interrumpido)</span></div>
+          <div style="margin-top:6px; color:#475569; font-size:12px"></div>
+        </div>
       </div>
     </main>
 
@@ -184,6 +190,12 @@ const originalArray = ref([]);
 const currentArray = ref([]);
 const sortedArray = ref([]);
 const lastSteps = ref([]); // array of snapshots
+
+// Tiempos (ms)
+// elapsedAlgoMs: tiempo que tarda en generar los snapshots (solo algoritmo, sin animaciones)
+// elapsedPlaybackMs: tiempo que tarda la reproducción/animación (incluye delays)
+const elapsedAlgoMs = ref(null);
+const elapsedPlaybackMs = ref(null);
 
 const isPlaying = ref(false);
 const playAbort = { aborted: false };
@@ -374,7 +386,13 @@ async function playSteps(steps){
 
 function stopPlay(){ playAbort.aborted = true; isPlaying.value = false; }
 
-function computeAndPlay(arr, algo, asc=true){
+function formatTime(ms){
+  if (ms === null || ms === undefined) return '-';
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms/1000).toFixed(3)} s`;
+}
+
+async function computeAndPlay(arr, algo, asc=true){
   if (!arr || !arr.length) return;
   let steps = [];
   if (algo === 'selection') steps = snapshotsSelection(arr, asc);
@@ -383,7 +401,19 @@ function computeAndPlay(arr, algo, asc=true){
   else if (algo === 'shell') steps = snapshotsShell(arr, asc);
   lastSteps.value = steps.slice();
   sortedArray.value = steps[steps.length-1].slice();
-  playSteps(steps);
+
+  // medir tiempo de ejecución del algoritmo (generación de snapshots)
+  const tAlgo0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  // steps ya generados arriba
+  const tAlgo1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  elapsedAlgoMs.value = Math.round(tAlgo1 - tAlgo0);
+
+  // medir tiempo: desde inicio de reproducción hasta que playSteps termine (incluye delays)
+  elapsedPlaybackMs.value = null;
+  const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  await playSteps(steps);
+  const t1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  elapsedPlaybackMs.value = Math.round(t1 - t0);
 }
 
 function onGenerate(){
@@ -391,15 +421,24 @@ function onGenerate(){
   let a = mode.value === 'random' ? generateRandomArray() : parseManual();
   originalArray.value = a.slice(); currentArray.value = a.slice(); sortedArray.value = [];
   lastSteps.value = [];
+  elapsedAlgoMs.value = null;
+  elapsedPlaybackMs.value = null;
 }
 
-function replay(){ if (lastSteps.value.length) { playSteps(lastSteps.value); } }
-
-function sortAsc(){ if (!originalArray.value.length) { onGenerate(); }
-  computeAndPlay(currentArray.value.slice(), algorithm.value, true);
+async function replay(){ 
+  if (!lastSteps.value.length) return;
+  elapsedPlaybackMs.value = null;
+  const t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  await playSteps(lastSteps.value);
+  const t1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  elapsedPlaybackMs.value = Math.round(t1 - t0);
 }
-function sortDesc(){ if (!originalArray.value.length) { onGenerate(); }
-  computeAndPlay(currentArray.value.slice(), algorithm.value, false);
+
+async function sortAsc(){ if (!originalArray.value.length) { onGenerate(); }
+  await computeAndPlay(currentArray.value.slice(), algorithm.value, true);
+}
+async function sortDesc(){ if (!originalArray.value.length) { onGenerate(); }
+  await computeAndPlay(currentArray.value.slice(), algorithm.value, false);
 }
 
 function onImportClick(){ fileInput.value.click(); }
@@ -422,9 +461,28 @@ function onFilePicked(e){
 }
 
 function onExport(){
+  // Permitir al usuario elegir el nombre del archivo (sin o con .json)
   const data = currentArray.value.slice();
-  const blob = new Blob([JSON.stringify(data,null,2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='numbers.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  const defaultName = 'numbers';
+  try {
+    const input = prompt('Nombre del archivo (sin extensión)', defaultName);
+    if (input === null) return; // usuario canceló
+    let name = String(input).trim();
+    if (!name) name = defaultName;
+    if (!name.toLowerCase().endsWith('.json')) name = name + '.json';
+
+    const blob = new Blob([JSON.stringify(data,null,2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('No se pudo exportar el archivo.');
+  }
 }
 
 // watch manualText changes to keep original updated
