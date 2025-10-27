@@ -461,9 +461,28 @@ function onFilePicked(e){
 }
 
 function onExport(){
+  // Permitir al usuario elegir el nombre del archivo (sin o con .json)
   const data = currentArray.value.slice();
-  const blob = new Blob([JSON.stringify(data,null,2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='numbers.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  const defaultName = 'numbers';
+  try {
+    const input = prompt('Nombre del archivo (sin extensión)', defaultName);
+    if (input === null) return; // usuario canceló
+    let name = String(input).trim();
+    if (!name) name = defaultName;
+    if (!name.toLowerCase().endsWith('.json')) name = name + '.json';
+
+    const blob = new Blob([JSON.stringify(data,null,2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('No se pudo exportar el archivo.');
+  }
 }
 
 // watch manualText changes to keep original updated
