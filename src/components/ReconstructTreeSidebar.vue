@@ -13,20 +13,21 @@
       <select v-model="method" class="input">
         <option value="in-pre">In-orden + Pre-orden</option>
         <option value="in-post">In-orden + Post-orden</option>
+        <option value="pre-post">Pre-orden + Post-orden (Solo Árbol Lleno)</option>
       </select>
     </div>
 
     <!-- Entradas de Recorridos -->
     <div class="group">
       <h2>Recorridos (nodos separados por coma)</h2>
-      <label>In-orden</label>
-      <input v-model="traversals.inorder" class="input" placeholder="Ej: 4, 2, 5, 1, 3" />
+      <label v-if="method !== 'pre-post'">In-orden</label>
+      <input v-if="method !== 'pre-post'" v-model="traversals.inorder" class="input" placeholder="Ej: 4, 2, 5, 1, 3" />
 
-      <label v-if="method === 'in-pre'">Pre-orden</label>
-      <input v-if="method === 'in-pre'" v-model="traversals.preorder" class="input" placeholder="Ej: 1, 2, 4, 5, 3" />
+      <label v-if="method !== 'in-post'">Pre-orden</label>
+      <input v-if="method !== 'in-post'" v-model="traversals.preorder" class="input" placeholder="Ej: 1, 2, 4, 5, 3" />
 
-      <label v-if="method === 'in-post'">Post-orden</label>
-      <input v-if="method === 'in-post'" v-model="traversals.postorder" class="input" placeholder="Ej: 4, 5, 2, 3, 1" />
+      <label v-if="method !== 'in-pre'">Post-orden</label>
+      <input v-if="method !== 'in-pre'" v-model="traversals.postorder" class="input" placeholder="Ej: 4, 5, 2, 3, 1" />
     </div>
     <hr class="sep" />
 
