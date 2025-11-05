@@ -13,7 +13,7 @@
       <select v-model="method" class="input">
         <option value="in-pre">In-orden + Pre-orden</option>
         <option value="in-post">In-orden + Post-orden</option>
-        <option value="pre-post">Pre-orden + Post-orden (Solo Árbol Lleno)</option>
+        <option value="pre-post">Pre-orden + Post-orden</option>
       </select>
     </div>
 
@@ -74,6 +74,9 @@ const traversals = reactive({
 });
 
 function onReconstruct() {
+  if (method.value === 'pre-post') {
+    traversals.inorder = ''; // Limpiar inorder si no se usa
+  }
   emit('reconstruct', { method: method.value, ...traversals });
 }
 
