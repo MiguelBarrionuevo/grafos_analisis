@@ -69,11 +69,6 @@
           @click="$emit('run-johnson')">🧭 Johnson (Ruta crítica)</button>
         <button class="button" @click="$emit('clear-highlight')">✨ Quitar resaltado</button>
       </div>
-      <div class="subgroup" style="margin-top:10px">
-        <h2>Kruskal</h2>
-        <button class="button" @click="$emit('run-kruskal')">🌲 Kruskal (MST)</button>
-        <button class="button" @click="$emit('clear-kruskal')">✨ Quitar resaltado MST</button>
-      </div>
       <div class="subgroup" style="margin-top: 10px;">
         <h2>Asignación</h2>
         <button class="button" @click="$emit('run-assignment')">⚖️ Asignación</button>
@@ -82,6 +77,12 @@
         <h2>Ordenamiento</h2>
         <button class="button" @click="$emit('open-sort')">
           🔀 Sort
+        </button>
+      </div>
+      <div class="subgroup" style="margin-top: 10px;">
+        <h2>Transporte</h2>
+        <button class="button" @click="$emit('open-northwest')">
+          🚚 Algoritmo Northwest
         </button>
       </div>
     </div>

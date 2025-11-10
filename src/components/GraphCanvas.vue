@@ -111,17 +111,6 @@ onMounted(() => {
         }
       },
       {
-        selector: 'edge.kruskal',
-        style: {
-          'line-color': '#10b981', /* green-500 */
-          'width': 4,
-          'line-style': 'solid',
-          'target-arrow-color': '#10b981',
-          'curve-style': 'bezier',
-          'z-index': 10
-        }
-      },
-      {
         selector: 'node.critical',
         style: {
           'border-width': 2,
@@ -325,56 +314,6 @@ function getGraphData() {
   return { nodes, edges };
 }
 
-// === Algoritmo Kruskal (MST) ===
-function runKruskal() {
-  const data = getGraphData();
-  if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) return { ok: false, message: 'Grafo vacío' };
-
-  // Disjoint Set Union (Union-Find)
-  const parent = new Map();
-  function find(x) {
-    if (parent.get(x) !== x) parent.set(x, find(parent.get(x)));
-    return parent.get(x);
-  }
-  function union(a, b) {
-    const ra = find(a); const rb = find(b);
-    if (ra === rb) return false;
-    parent.set(rb, ra); return true;
-  }
-
-  // Inicializar padres
-  data.nodes.forEach(n => parent.set(n.id, n.id));
-
-  // Convertir edges y ordenar por peso ascendente
-  const edges = data.edges.map(e => ({ id: e.id, u: e.source, v: e.target, w: Number(e.weight) || 0 }));
-  edges.sort((a,b) => a.w - b.w);
-
-  const mst = [];
-  let total = 0;
-  for (const e of edges) {
-    // Treat directed edges as undirected for MST
-    if (union(e.u, e.v)) {
-      mst.push(e);
-      total += e.w;
-    }
-  }
-
-  // Resaltar en el canvas
-  // limpiar marcas anteriores
-  cy.edges().removeClass('kruskal');
-  for (const e of mst) {
-    const el = cy.getElementById(e.id);
-    if (el && el.nonempty()) el.addClass('kruskal');
-  }
-
-  return { ok: true, total, edges: mst };
-}
-
-function clearKruskal() {
-  if (!cy) return;
-  cy.edges().removeClass('kruskal');
-}
-
 function loadGraphData(json, { replace = false } = {}) {
   if (replace) cy.elements().remove();
   const els = [];
@@ -492,7 +431,6 @@ defineExpose({
   getAdjacency,
   showCriticalCPM,
   clearCriticalCPM
-  ,runKruskal, clearKruskal
 });
 </script>
 
