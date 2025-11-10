@@ -111,7 +111,7 @@
         <div class="box">
           <h3>Tiempos</h3>
           
-          <div>Reproducción: <strong>{{ formatTime(elapsedPlaybackMs) }}</strong> <span v-if="playAbort.aborted" style="color:#c2410c; font-weight:600;">(interrumpido)</span></div>
+          <pre>Reproducción: <strong>{{ formatTime(elapsedPlaybackMs) }}</strong> <span v-if="playAbort.aborted">(interrumpido)</span></pre>
           <div style="margin-top:6px; color:#475569; font-size:12px"></div>
         </div>
       </div>

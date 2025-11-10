@@ -21,7 +21,8 @@
       @toggle-johnson-mode="setJohnsonMode"
       @open-build-tree="switchToBinaryTreeView"
       @open-reconstruct-tree="switchToReconstructTreeView"
-      @open-northwest="switchToNorthwestView"
+      @run-kruskal="handleRunKruskal"
+      @clear-kruskal="handleClearKruskal"
     />
 
     <main class="main">
@@ -342,6 +343,32 @@
         <p><em>Nota:</em> Si alguna de estas condiciones no se cumple, el cálculo no será válido y el programa te lo indicará.</p>
       </div>
     </GraphModal>
+
+    <!-- MODAL: Resultado Kruskal (MST) -->
+    <GraphModal
+      :visible="modals.kruskalResult.visible"
+      title="Kruskal — Árbol(es) de expansión mínima"
+      submit-text="Cerrar"
+      @cancel="() => (modals.kruskalResult.visible = false)"
+      @submit="() => (modals.kruskalResult.visible = false)"
+    >
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div><strong>Peso total:</strong> {{ kruskalResultData.total }}</div>
+        <div style="max-height:220px;overflow:auto">
+          <table class="matrix-table" style="width:100%">
+            <thead>
+              <tr><th>Arista</th><th>Peso</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="e in kruskalResultData.edges" :key="e.id">
+                <td>{{ e.u }} → {{ e.v }}</td>
+                <td>{{ e.w }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </GraphModal>
   </div>
   <!-- Vista dedicada para el algoritmo de Asignación -->
   <AssignmentView v-else-if="currentView === 'assignment'" @back-to-main="switchToMainView" />
@@ -353,8 +380,6 @@
   <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
   <!-- Vista dedicada para Ordenamiento -->
   <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
-  <!-- Vista dedicada para Algoritmo Northwest -->
-  <NorthwestView v-else-if="currentView === 'northwest'" @back-to-main="switchToMainView" />
 </template>
 
 <script setup>
@@ -375,7 +400,6 @@ const ReconstructTreeView = defineAsyncComponent(() =>
   import('./components/ReconstructTreeView.vue')
 );
 const SortView = defineAsyncComponent(() => import('./components/SortView.vue'));
-const NorthwestView = defineAsyncComponent(() => import('./components/NorthwestView.vue'));
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
@@ -385,7 +409,6 @@ const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
 const switchToSortView = () => { currentView.value = 'sort'; };
-const switchToNorthwestView = () => { currentView.value = 'northwest'; };
 const switchToMainView = () => { currentView.value = 'main'; };
 
 // === Toggle de modo Johnson estricto ===
@@ -414,6 +437,7 @@ const modals = reactive({
   help: { visible: false },
   johnson: { visible: false },
   johnsonChoice: { visible: false },
+  kruskalResult: { visible: false }
 });
 
 const forms = reactive({
@@ -605,6 +629,21 @@ function submitImport() {
 /* ===== Ayuda ===== */
 function openHelp() { modals.help.visible = true; }
 function closeHelp() { modals.help.visible = false; }
+
+// --- Kruskal handlers ---
+const kruskalResultData = reactive({ total: 0, edges: [] });
+function handleRunKruskal() {
+  try {
+    const res = graphRef.value.runKruskal();
+    if (!res || !res.ok) { alert(res?.message || 'No se pudo ejecutar Kruskal.'); return; }
+    kruskalResultData.total = res.total;
+    kruskalResultData.edges = res.edges;
+    modals.kruskalResult.visible = true;
+  } catch (err) {
+    console.error(err); alert('Error ejecutando Kruskal.');
+  }
+}
+function handleClearKruskal() { graphRef.value.clearKruskal(); }
 
 function runJohnson(mode = 'max') {
   const data = graphRef.value.getGraphData();
