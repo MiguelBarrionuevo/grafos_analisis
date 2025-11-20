@@ -358,14 +358,14 @@ export default {
     updateCanvas() {
       this.$nextTick(() => {
         if (this.$refs.canvasRef) {
-          this.$refs.canvasRef.updateGraph({ nodes: this.nodes, edges: this.edges })
+          this.$refs.canvasRef.loadGraphData({ nodes: this.nodes, edges: this.edges }, { replace: true })
         }
       })
     },
 
     // ===== GESTIÓN DE NODOS =====
-    onRequestAddNode(position) {
-      this.forms.addNode.position = position
+    onRequestAddNode(event) {
+      this.forms.addNode.position = event.position
       this.forms.addNode.label = `Nodo${this.nodes.length + 1}`
       this.forms.addNode.color = '#2196F3'
       this.modals.addNode.visible = true
@@ -401,8 +401,8 @@ export default {
       return `n${Date.now()}`
     },
 
-    onRequestEditNode(nodeId) {
-      const node = this.nodes.find(n => n.id === nodeId)
+    onRequestEditNode(event) {
+      const node = this.nodes.find(n => n.id === event.id)
       if (node) {
         this.forms.editNode.id = node.id
         this.forms.editNode.label = node.label
@@ -426,9 +426,9 @@ export default {
     },
 
     // ===== GESTIÓN DE ARISTAS =====
-    onRequestAddEdge(sourceId, targetId) {
-      this.forms.addEdge.sourceId = sourceId
-      this.forms.addEdge.targetId = targetId
+    onRequestAddEdge(event) {
+      this.forms.addEdge.sourceId = event.sourceId
+      this.forms.addEdge.targetId = event.targetId
       this.forms.addEdge.weight = 1
       this.forms.addEdge.directed = false
       this.forms.addEdge.error = ''
@@ -469,8 +469,8 @@ export default {
       return `e${Date.now()}`
     },
 
-    onRequestEditEdge(edgeId) {
-      const edge = this.edges.find(e => e.id === edgeId)
+    onRequestEditEdge(event) {
+      const edge = this.edges.find(e => e.id === event.id)
       if (edge) {
         this.forms.editEdge.id = edge.id
         this.forms.editEdge.weight = edge.weight
@@ -501,9 +501,9 @@ export default {
     },
 
     // ===== ELIMINAR =====
-    onRequestDelete(kind, id) {
-      this.forms.delete.kind = kind
-      this.forms.delete.id = id
+    onRequestDelete(event) {
+      this.forms.delete.kind = event.kind
+      this.forms.delete.id = event.id
       this.modals.confirmDelete.visible = true
     },
 
