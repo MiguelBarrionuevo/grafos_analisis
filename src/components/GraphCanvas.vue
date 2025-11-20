@@ -140,6 +140,21 @@ onMounted(() => {
           'target-arrow-color': '#10b981'
         }
       },
+        {
+          selector: 'edge.dijkstra',
+          style: {
+            'line-color': '#f59e0b',
+            'width': 4,
+            'target-arrow-color': '#f59e0b'
+          }
+        },
+        {
+          selector: 'node.dijkstra',
+          style: {
+            'border-width': 3,
+            'border-color': '#f59e0b'
+          }
+        },
       {
         selector: 'node.mst',
         style: {
@@ -250,6 +265,27 @@ function clearMST() {
     const overlay = mstOverlay.value;
     if (overlay) overlay.style.display = 'none';
   } catch (err) { console.error('clearMST overlay error', err); }
+}
+
+// ====== Highlight Dijkstra path ======
+function showPath(nodeIds){
+  try{
+    cy.elements().removeClass('dijkstra').addClass('dim');
+    nodeIds.forEach((id, idx)=>{
+      const n = cy.getElementById(id);
+      if(n && n.nonempty()){ n.removeClass('dim').addClass('dijkstra'); }
+      if(idx < nodeIds.length - 1){
+        // find edge between id -> next
+        const next = nodeIds[idx+1];
+        const e = cy.edges().filter(ele => (ele.data('source')===id && ele.data('target')===next) || (!ele.data('directed') && ele.data('source')===next && ele.data('target')===id));
+        if(e && e.nonempty()){ e.removeClass('dim').addClass('dijkstra'); e.source().removeClass('dim').addClass('dijkstra'); e.target().removeClass('dim').addClass('dijkstra'); }
+      }
+    });
+  }catch(err){ console.error('showPath error', err); }
+}
+
+function clearPath(){
+  cy.elements().removeClass('dijkstra').removeClass('dim');
 }
 
 // ====== Emits a App.vue ======
@@ -511,6 +547,7 @@ defineExpose({
   ,
   showMST,
   clearMST
+  ,showPath, clearPath
 });
 </script>
 
