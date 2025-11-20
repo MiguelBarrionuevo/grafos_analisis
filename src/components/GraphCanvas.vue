@@ -178,7 +178,9 @@ function bindInteractions() {
   // fondo → agregar nodo
   cy.on('tap', (evt) => {
     if (evt.target !== cy) return;
+    console.log('[GraphCanvas] tap en fondo, modo actual:', props.mode, 'esperado:', MODES.ADD_NODE)
     if (props.mode === MODES.ADD_NODE) {
+      console.log('[GraphCanvas] Emitiendo addNode con posición:', evt.position)
       emitAddNode(evt.position);
     }
   });
