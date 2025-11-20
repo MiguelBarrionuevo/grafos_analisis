@@ -332,29 +332,19 @@ export default {
   },
 
   mounted() {
-    this.loadGraph()
+    // No cargar datos automáticamente, comenzar con grafo vacío
+    // El usuario debe crear su propio grafo o importar uno
+    this.updateCanvas()
   },
 
   methods: {
     // ===== GESTIÓN DE MODOS =====
     setMode(newMode) {
+      console.log('[DijkstraView] Cambiando modo a:', newMode)
       this.mode = newMode
     },
 
-    // ===== CARGA DE DATOS =====
-    loadGraph() {
-      try {
-        const graph = this.$parent?.getGraphDataSafe ? this.$parent.getGraphDataSafe() : null
-        if (graph?.nodes) {
-          this.nodes = [...graph.nodes]
-          this.edges = [...graph.edges || []]
-        }
-        this.updateCanvas()
-      } catch (err) {
-        console.warn('[DijkstraView] Error loading graph:', err)
-      }
-    },
-
+    // ===== ACTUALIZACIÓN DEL CANVAS =====
     updateCanvas() {
       this.$nextTick(() => {
         if (this.$refs.canvasRef) {
@@ -370,13 +360,17 @@ export default {
             position: n.position || { x: n.x || Math.random() * 400 + 100, y: n.y || Math.random() * 300 + 100 }
           }))
           
+          console.log('[DijkstraView] Actualizando canvas con:', { nodes: validNodes.length, edges: validEdges.length })
           this.$refs.canvasRef.loadGraphData({ nodes: validNodes, edges: validEdges }, { replace: true })
+        } else {
+          console.warn('[DijkstraView] canvasRef no disponible aún')
         }
       })
     },
 
     // ===== GESTIÓN DE NODOS =====
     onRequestAddNode(event) {
+      console.log('[DijkstraView] onRequestAddNode llamado:', event)
       this.forms.addNode.position = event.position
       this.forms.addNode.label = `Nodo${this.nodes.length + 1}`
       this.forms.addNode.color = '#2196F3'
