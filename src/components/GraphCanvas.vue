@@ -174,11 +174,30 @@ onMounted(() => {
   console.log('[GraphCanvas] cytoscape instance created', !!cy);
   try { bindInteractions(); console.log('[GraphCanvas] bindInteractions attached'); } catch (err) { console.error('[GraphCanvas] bindInteractions error', err); }
 
+  // Temporary debug: listen to native clicks on the container to check event propagation
+  try {
+    if (container.value && container.value.addEventListener) {
+      const handler = (ev) => { console.log('[GraphCanvas] container DOM click at', ev.clientX, ev.clientY); };
+      container.value.__dbgClickHandler = handler;
+      container.value.addEventListener('click', handler);
+      console.log('[GraphCanvas] container click listener attached');
+    }
+  } catch (err) { console.error('[GraphCanvas] attach container click handler error', err); }
+
 });
 
 onBeforeUnmount(() => { if (cy) { cy.destroy(); cy = null; } });
 
-
+// cleanup container click listener if present
+onBeforeUnmount(() => {
+  try {
+    if (container.value && container.value.__dbgClickHandler) {
+      container.value.removeEventListener('click', container.value.__dbgClickHandler);
+      delete container.value.__dbgClickHandler;
+      console.log('[GraphCanvas] container click listener removed');
+    }
+  } catch (err) { /* ignore */ }
+});
 
 function bindInteractions() {
   console.log('[GraphCanvas] bindInteractions() called');
