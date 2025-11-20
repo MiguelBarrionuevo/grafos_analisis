@@ -53,6 +53,9 @@
 </template>
 
 <script setup>
+// @ts-nocheck
+/* eslint-disable no-undef */
+/* global defineProps, defineExpose */
 import { ref, onMounted } from 'vue';
 import { dijkstraAdj, reconstructPath } from '../utils/dijkstra';
 

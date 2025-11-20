@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition */
 // Implementación simple de Dijkstra con heap mínimo
 class MinHeap {
   constructor() { this.heap = []; this.pos = new Map(); }
