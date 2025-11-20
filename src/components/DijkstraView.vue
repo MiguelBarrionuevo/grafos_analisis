@@ -10,16 +10,16 @@
     <aside class="sidebar">
       <div class="group">
         <h2>Herramientas</h2>
-        <button class="button" :class="{ active: mode === 'ADD_NODE' }" @click="setMode('ADD_NODE')">
+        <button class="button" :class="{ active: mode === MODES.ADD_NODE }" @click="setMode(MODES.ADD_NODE)">
           ➕ Agregar nodo
         </button>
-        <button class="button" :class="{ active: mode === 'ADD_EDGE' }" @click="setMode('ADD_EDGE')">
+        <button class="button" :class="{ active: mode === MODES.ADD_EDGE }" @click="setMode(MODES.ADD_EDGE)">
           🔗 Agregar arista
         </button>
-        <button class="button" :class="{ active: mode === 'EDIT' }" @click="setMode('EDIT')">
+        <button class="button" :class="{ active: mode === MODES.EDIT }" @click="setMode(MODES.EDIT)">
           ✏️ Editar (doble clic)
         </button>
-        <button class="button" :class="{ active: mode === 'DELETE' }" @click="setMode('DELETE')">
+        <button class="button" :class="{ active: mode === MODES.DELETE }" @click="setMode(MODES.DELETE)">
           🗑️ Borrar
         </button>
         <button class="button danger" @click="confirmClear">
@@ -260,7 +260,7 @@
 import GraphCanvas from './GraphCanvas.vue'
 import GraphModal from './GraphModal.vue'
 import { dijkstraAdj } from '../utils/dijkstra.js'
-import { modes } from '../constants/modes.js'
+import { MODES } from '../constants/modes.js'
 
 export default {
   name: 'DijkstraView',
@@ -274,7 +274,8 @@ export default {
 
   data() {
     return {
-      mode: modes.SELECT,
+      MODES,
+      mode: MODES.NONE,
       
       nodes: [],
       edges: [],
