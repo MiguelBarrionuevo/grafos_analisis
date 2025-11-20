@@ -8,80 +8,81 @@
     </header>
 
     <aside class="sidebar">
-      <div class="group">
-        <h2>Herramientas</h2>
-        <button class="button" @click="addNodeDirect">
-          ➕ Crear nodo
-        </button>
-        <button class="button" :class="{ active: mode === MODES.ADD_NODE }" @click="setMode(MODES.ADD_NODE)">
-          📍 Agregar por click
-        </button>
-        <button class="button" :class="{ active: mode === MODES.ADD_EDGE }" @click="setMode(MODES.ADD_EDGE)">
-          🔗 Agregar arista
-        </button>
-        <button class="button" :class="{ active: mode === MODES.EDIT }" @click="setMode(MODES.EDIT)">
-          ✏️ Editar (doble clic)
-        </button>
-        <button class="button" :class="{ active: mode === MODES.DELETE }" @click="setMode(MODES.DELETE)">
-          🗑️ Borrar
-        </button>
-        <button class="button danger" @click="confirmClear">
-          ♻️ Borrar todo
-        </button>
-      </div>
+      <!-- Algoritmo Dijkstra (prioridad máxima) -->
+      <div class="group priority">
+        <h2>🧭 Algoritmo Dijkstra</h2>
+        
+        <div class="dijkstra-controls">
+          <label class="label">Nodo origen</label>
+          <select v-model="source" class="input">
+            <option value="">-- Seleccionar origen --</option>
+            <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.label || n.id }}</option>
+          </select>
 
-      <hr class="sep" />
+          <label class="label">Nodo destino</label>
+          <select v-model="target" class="input">
+            <option value="">-- Seleccionar destino --</option>
+            <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.label || n.id }}</option>
+          </select>
 
-      <div class="group">
-        <h2>Archivo</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="button" @click="exportGraph">💾 Exportar</button>
-          <button class="button" @click="importGraph">📥 Importar</button>
-          <input ref="fileInput" type="file" accept="application/json" style="display:none" @change="onFileSelected" />
-        </div>
-      </div>
-
-      <hr class="sep" />
-
-      <div class="group">
-        <h2>Dijkstra</h2>
-        <label class="label">Origen</label>
-        <select v-model="source" class="input">
-          <option value="">-- Seleccionar --</option>
-          <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.label || n.id }}</option>
-        </select>
-
-        <label class="label">Destino</label>
-        <select v-model="target" class="input">
-          <option value="">-- Seleccionar --</option>
-          <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.label || n.id }}</option>
-        </select>
-
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <button class="button" @click="runDijkstra" :disabled="!source || !target">🧭 Calcular</button>
-          <button class="button" @click="clearPath">🧹 Limpiar ruta</button>
-        </div>
-      </div>
-
-      <hr class="sep" />
-
-      <div class="group">
-        <h2>Resultado</h2>
-        <div v-if="error" class="error-text">{{ error }}</div>
-        <div v-else>
-          <div v-if="distStr !== null">
-            <div>Distancia: <strong>{{ distStr }}</strong></div>
-            <div style="margin-top:8px">Camino: <code>{{ path.join(' → ') }}</code></div>
-            <div style="margin-top:6px;font-size:12px;color:var(--muted)">{{ path.length }} nodos en la ruta</div>
+          <div class="button-row">
+            <button class="button primary" @click="runDijkstra" :disabled="!source || !target">
+              🧭 Calcular ruta
+            </button>
+            <button class="button secondary" @click="clearPath">🧹 Limpiar</button>
           </div>
-          <div v-else style="color:var(--muted)">Selecciona origen y destino, luego calcula.</div>
+        </div>
+
+        <!-- Resultado -->
+        <div class="result-box">
+          <div v-if="error" class="error-text">{{ error }}</div>
+          <div v-else-if="distStr !== null" class="result-success">
+            <div class="distance">Distancia: <strong>{{ distStr }}</strong></div>
+            <div class="path">Ruta: <code>{{ path.join(' → ') }}</code></div>
+            <div class="path-info">{{ path.length }} nodos</div>
+          </div>
+          <div v-else class="result-placeholder">
+            Selecciona origen y destino para calcular la ruta más corta
+          </div>
         </div>
       </div>
 
-      <hr class="sep" />
-
+      <!-- Crear grafo -->
       <div class="group">
-        <button class="button" @click="showHelp">❓ Ayuda</button>
+        <h2>🎨 Crear grafo</h2>
+        <div class="tool-grid">
+          <button class="button" @click="addNodeDirect">➕ Nodo directo</button>
+          <button class="button" :class="{ active: mode === MODES.ADD_NODE }" @click="setMode(MODES.ADD_NODE)">
+            📍 Nodo por click
+          </button>
+        </div>
+        <button class="button" :class="{ active: mode === MODES.ADD_EDGE }" @click="setMode(MODES.ADD_EDGE)">
+          🔗 Conectar nodos
+        </button>
+        <div class="tool-grid">
+          <button class="button" :class="{ active: mode === MODES.EDIT }" @click="setMode(MODES.EDIT)">
+            ✏️ Editar
+          </button>
+          <button class="button" :class="{ active: mode === MODES.DELETE }" @click="setMode(MODES.DELETE)">
+            🗑️ Borrar
+          </button>
+        </div>
+        <button class="button danger" @click="confirmClear">♻️ Limpiar todo</button>
+      </div>
+
+      <!-- Archivo -->
+      <div class="group">
+        <h2>💾 Archivo</h2>
+        <div class="tool-grid">
+          <button class="button" @click="exportGraph">💾 Guardar</button>
+          <button class="button" @click="importGraph">📥 Cargar</button>
+        </div>
+        <input ref="fileInput" type="file" accept="application/json" style="display:none" @change="onFileSelected" />
+      </div>
+
+      <!-- Ayuda -->
+      <div class="group">
+        <button class="button help" @click="showHelp">❓ Ayuda rápida</button>
       </div>
     </aside>
 
@@ -222,38 +223,40 @@
 
     <GraphModal
       :visible="modals.help.visible"
-      title="Ayuda — Dijkstra"
+      title="🧭 Guía rápida de Dijkstra"
       :hide-submit="true"
       @cancel="closeHelp"
     >
-      <div style="line-height:1.5">
-        <h3 style="margin:0">¿Qué es Dijkstra?</h3>
-        <p>Dijkstra es un algoritmo que encuentra la <strong>ruta más corta</strong> entre dos nodos en un grafo con pesos no negativos.</p>
+      <div class="help-content">
+        <div class="help-section">
+          <h4>🎯 ¿Qué hace?</h4>
+          <p>Encuentra la <strong>ruta más corta</strong> entre dos nodos.</p>
+        </div>
         
-        <h3 style="margin:16px 0 8px 0">¿Cómo usar esta vista?</h3>
-        <ol style="padding-left:20px;margin:8px 0;">
-          <li><strong>Crear el grafo:</strong> Usa las herramientas para agregar nodos y aristas con pesos ≥ 0.</li>
-          <li><strong>Elegir origen y destino:</strong> Selecciona los nodos en los selectores.</li>
-          <li><strong>Calcular:</strong> Haz clic en "🧭 Calcular" para ver la ruta más corta.</li>
-          <li><strong>Ver resultado:</strong> La ruta se resalta en el canvas y se muestra la distancia total.</li>
-        </ol>
+        <div class="help-section">
+          <h4>🚀 Pasos rápidos</h4>
+          <ol class="help-steps">
+            <li>Crea nodos y conecta con aristas (peso ≥ 0)</li>
+            <li>Selecciona origen y destino</li>
+            <li>Haz clic en "🧭 Calcular"</li>
+          </ol>
+        </div>
 
-        <h3 style="margin:16px 0 8px 0">Tipos de aristas</h3>
-        <ul style="padding-left:20px;margin:8px 0;">
-          <li><strong>No dirigidas:</strong> Se puede ir en ambas direcciones (A ↔ B). Ideal para distancias, carreteras bidireccionales.</li>
-          <li><strong>Dirigidas:</strong> Solo se puede ir en una dirección (A → B). Ideal para calles de una sola vía, flujos.</li>
-        </ul>
+        <div class="help-section">
+          <h4>💡 Tipos de aristas</h4>
+          <div class="help-tips">
+            <div><strong>↔</strong> No dirigida: ambas direcciones</div>
+            <div><strong>→</strong> Dirigida: una sola dirección</div>
+          </div>
+        </div>
 
-        <h3 style="margin:16px 0 8px 0">Consejos</h3>
-        <ul style="padding-left:20px;margin:8px 0;">
-          <li>Los pesos deben ser <strong>≥ 0</strong> (Dijkstra no funciona con pesos negativos).</li>
-          <li>Si no hay camino entre origen y destino, la distancia será "∞".</li>
-          <li>Puedes exportar/importar grafos para reutilizar o compartir.</li>
-        </ul>
-
-        <p style="margin-top:16px;color:var(--muted);font-size:13px;">
-          <strong>Nota:</strong> Este algoritmo es útil para encontrar rutas en mapas, redes de comunicación, y muchos otros problemas de optimización.
-        </p>
+        <div class="help-section">
+          <h4>⚠️ Importante</h4>
+          <div class="help-tips">
+            <div>• Pesos deben ser ≥ 0</div>
+            <div>• Sin camino = distancia "∞"</div>
+          </div>
+        </div>
       </div>
     </GraphModal>
   </div>
@@ -785,11 +788,14 @@ export default {
 }
 
 .sidebar {
-  width: 320px;
+  width: 280px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   overflow-y: auto;
-  padding: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .main {
@@ -809,12 +815,22 @@ export default {
 }
 
 .group {
-  margin-bottom: 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.group.priority {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .group h2 {
   margin: 0 0 12px 0;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -856,6 +872,142 @@ export default {
 .button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.button.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.button.primary:hover:not(:disabled) {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+.button.secondary {
+  background: var(--bg-primary);
+  border-color: var(--border);
+}
+
+.button.help {
+  background: linear-gradient(135deg, #fff3e0 0%, #f3e5f5 100%);
+  border-color: #ff9800;
+  color: #e65100;
+}
+
+.button.help:hover {
+  background: linear-gradient(135deg, #ffe0b2 0%, #f8bbd9 100%);
+}
+
+/* Layout helpers */
+.tool-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.button-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dijkstra-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Resultado */
+.result-box {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(33,150,243,0.2);
+}
+
+.result-success .distance {
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.result-success .path {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.result-success .path code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.result-success .path-info {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.result-placeholder {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  font-style: italic;
+}
+
+/* Modal ayuda compacto */
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.help-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-section p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.help-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.help-steps li {
+  margin: 4px 0;
+}
+
+.help-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.help-tips div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .label {
@@ -928,44 +1080,16 @@ export default {
   font-size: 12px;
 }
 
-/* Estilos específicos para el modal de ayuda */
+/* Estilos específicos para el modal de ayuda compacto */
 :deep(.modal) {
-  max-width: 600px;
-  width: 90vw;
+  max-width: 450px;
+  width: 85vw;
 }
 
 :deep(.modal-body) {
-  max-height: 70vh;
+  max-height: 60vh;
   overflow-y: auto;
-  padding: 20px;
-}
-
-:deep(.modal-body h3) {
-  color: var(--text-primary);
-  margin: 16px 0 8px 0;
-  font-size: 16px;
-}
-
-:deep(.modal-body h3:first-child) {
-  margin-top: 0;
-}
-
-:deep(.modal-body p) {
-  margin: 8px 0;
-  line-height: 1.6;
-  color: var(--text-primary);
-}
-
-:deep(.modal-body ul),
-:deep(.modal-body ol) {
-  margin: 8px 0;
-  color: var(--text-primary);
-  padding-left: 20px;
-}
-
-:deep(.modal-body li) {
-  margin: 4px 0;
-  line-height: 1.5;
+  padding: 16px;
 }
 
 :deep(.modal-body strong) {
