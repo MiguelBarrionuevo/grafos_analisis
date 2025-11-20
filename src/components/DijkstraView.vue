@@ -726,6 +726,8 @@ export default {
 .app-layout {
   display: flex;
   height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .sidebar {
@@ -740,6 +742,13 @@ export default {
   flex: 1;
   background: var(--bg-primary);
   position: relative;
+  min-height: 0; /* importante para flex */
+  overflow: hidden;
+}
+
+.main > * {
+  width: 100%;
+  height: 100%;
 }
 
 .group {
