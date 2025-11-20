@@ -358,7 +358,19 @@ export default {
     updateCanvas() {
       this.$nextTick(() => {
         if (this.$refs.canvasRef) {
-          this.$refs.canvasRef.loadGraphData({ nodes: this.nodes, edges: this.edges }, { replace: true })
+          // Filtrar aristas que referencian nodos inexistentes
+          const nodeIds = new Set(this.nodes.map(n => n.id))
+          const validEdges = this.edges.filter(e => 
+            nodeIds.has(e.source) && nodeIds.has(e.target)
+          )
+          
+          // Asegurar que los nodos tienen posición
+          const validNodes = this.nodes.map(n => ({
+            ...n,
+            position: n.position || { x: n.x || Math.random() * 400 + 100, y: n.y || Math.random() * 300 + 100 }
+          }))
+          
+          this.$refs.canvasRef.loadGraphData({ nodes: validNodes, edges: validEdges }, { replace: true })
         }
       })
     },
@@ -379,12 +391,21 @@ export default {
       const label = this.forms.addNode.label || `Nodo${this.nodes.length + 1}`
       const newId = this.generateNodeId()
       
+      // Asegurar posición válida
+      let x = this.forms.addNode.position?.x
+      let y = this.forms.addNode.position?.y
+      
+      if (x == null || y == null) {
+        x = Math.random() * 400 + 100
+        y = Math.random() * 300 + 100
+      }
+      
       const newNode = {
         id: newId,
         label: label,
         color: this.forms.addNode.color,
-        x: this.forms.addNode.position?.x || Math.random() * 400 + 100,
-        y: this.forms.addNode.position?.y || Math.random() * 300 + 100
+        x: x,
+        y: y
       }
 
       this.nodes.push(newNode)
@@ -570,16 +591,35 @@ export default {
         try {
           const data = JSON.parse(e.target.result)
           if (data.nodes && Array.isArray(data.nodes)) {
-            this.nodes = data.nodes
-            this.edges = data.edges || []
+            // Validar y limpiar nodos
+            this.nodes = data.nodes.map(n => ({
+              id: n.id || `n${Date.now()}${Math.random()}`,
+              label: n.label || n.id || 'Nodo',
+              color: n.color || '#2196F3',
+              x: n.x || n.position?.x || Math.random() * 400 + 100,
+              y: n.y || n.position?.y || Math.random() * 300 + 100
+            }))
+            
+            // Validar y filtrar aristas
+            const nodeIds = new Set(this.nodes.map(n => n.id))
+            this.edges = (data.edges || [])
+              .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+              .map(e => ({
+                id: e.id || `e${Date.now()}${Math.random()}`,
+                source: e.source,
+                target: e.target,
+                weight: parseFloat(e.weight) >= 0 ? parseFloat(e.weight) : 1,
+                directed: !!e.directed
+              }))
+            
             this.clearPath()
             this.updateCanvas()
           } else {
-            alert('Archivo no válido')
+            alert('Archivo no válido: debe contener un array de nodos')
           }
         } catch (err) {
           console.error('Error importing:', err)
-          alert('Error al importar archivo')
+          alert('Error al importar archivo: ' + err.message)
         }
       }
       reader.readAsText(file)
@@ -826,5 +866,50 @@ export default {
   border-radius: 3px;
   font-family: monospace;
   font-size: 12px;
+}
+
+/* Estilos específicos para el modal de ayuda */
+:deep(.modal) {
+  max-width: 600px;
+  width: 90vw;
+}
+
+:deep(.modal-body) {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+:deep(.modal-body h3) {
+  color: var(--text-primary);
+  margin: 16px 0 8px 0;
+  font-size: 16px;
+}
+
+:deep(.modal-body h3:first-child) {
+  margin-top: 0;
+}
+
+:deep(.modal-body p) {
+  margin: 8px 0;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+:deep(.modal-body ul),
+:deep(.modal-body ol) {
+  margin: 8px 0;
+  color: var(--text-primary);
+  padding-left: 20px;
+}
+
+:deep(.modal-body li) {
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+:deep(.modal-body strong) {
+  color: var(--accent);
+  font-weight: 600;
 }
 </style>
