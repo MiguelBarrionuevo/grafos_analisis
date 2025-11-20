@@ -10,8 +10,11 @@
     <aside class="sidebar">
       <div class="group">
         <h2>Herramientas</h2>
+        <button class="button" @click="addNodeDirect">
+          ➕ Crear nodo
+        </button>
         <button class="button" :class="{ active: mode === MODES.ADD_NODE }" @click="setMode(MODES.ADD_NODE)">
-          ➕ Agregar nodo
+          📍 Agregar por click
         </button>
         <button class="button" :class="{ active: mode === MODES.ADD_EDGE }" @click="setMode(MODES.ADD_EDGE)">
           🔗 Agregar arista
@@ -259,7 +262,7 @@
 <script>
 import GraphCanvas from './GraphCanvas.vue'
 import GraphModal from './GraphModal.vue'
-import { dijkstraAdj } from '../utils/dijkstra.js'
+import { dijkstraAdj, reconstructPath } from '../utils/dijkstra.js'
 import { MODES } from '../constants/modes.js'
 
 export default {
@@ -332,9 +335,17 @@ export default {
   },
 
   mounted() {
-    // No cargar datos automáticamente, comenzar con grafo vacío
-    // El usuario debe crear su propio grafo o importar uno
-    this.updateCanvas()
+    // Asegurar que el canvas se inicializa después de que el layout esté listo
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.updateCanvas()
+        // Forzar resize de Cytoscape si está disponible
+        if (this.$refs.canvasRef?.cy) {
+          this.$refs.canvasRef.cy.resize()
+          this.$refs.canvasRef.cy.fit()
+        }
+      }, 100)
+    })
   },
 
   methods: {
@@ -342,6 +353,27 @@ export default {
     setMode(newMode) {
       console.log('[DijkstraView] Cambiando modo a:', newMode)
       this.mode = newMode
+    },
+
+    // ===== CREAR NODO DIRECTO =====
+    addNodeDirect() {
+      const label = `Nodo${this.nodes.length + 1}`
+      const pos = { x: Math.random() * 300 + 150, y: Math.random() * 200 + 100 }
+      const color = '#2196F3'
+      
+      try {
+        if (this.$refs.canvasRef && this.$refs.canvasRef.addNode) {
+          this.$refs.canvasRef.addNode(label, pos, color)
+          const data = this.$refs.canvasRef.getGraphData()
+          this.nodes = data.nodes || []
+          this.edges = data.edges || []
+          console.log('[DijkstraView] Nodo creado directamente:', label)
+        } else {
+          console.warn('[DijkstraView] Canvas API no disponible')
+        }
+      } catch (err) {
+        console.error('[DijkstraView] Error creando nodo:', err)
+      }
     },
 
     // ===== ACTUALIZACIÓN DEL CANVAS =====
@@ -637,9 +669,14 @@ export default {
       
       this.edges.forEach(e => {
         const weight = parseFloat(e.weight) || 1
-        adj[e.source].push({ node: e.target, weight })
+        if (weight < 0) {
+          console.warn('[DijkstraView] Peso negativo ignorado en arista:', e.id, weight)
+          return
+        }
+        // Formato correcto: [nodeId, weight] no { node, weight }
+        adj[e.source].push([e.target, weight])
         if (!e.directed) {
-          adj[e.target].push({ node: e.source, weight })
+          adj[e.target].push([e.source, weight])
         }
       })
       
@@ -656,6 +693,11 @@ export default {
         return
       }
 
+      if (this.nodes.length < 2) {
+        this.error = 'Necesitas al menos 2 nodos para calcular una ruta.'
+        return
+      }
+
       if (this.source === this.target) {
         this.distStr = '0'
         this.path = [this.source]
@@ -665,14 +707,20 @@ export default {
 
       try {
         const adj = this.buildAdj()
-        const result = dijkstraAdj(adj, this.source, this.target)
+        console.log('[DijkstraView] Matriz de adyacencia:', adj)
         
-        if (result.distance === Infinity) {
+        const result = dijkstraAdj(adj, this.source)
+        console.log('[DijkstraView] Resultado Dijkstra:', result)
+        
+        const targetDistance = result.dist.get(this.target)
+        if (targetDistance === Infinity) {
           this.error = 'No hay camino entre los nodos seleccionados.'
           this.clearPath()
         } else {
-          this.distStr = result.distance.toString()
-          this.path = result.path
+          this.distStr = targetDistance.toString()
+          // Reconstruir el camino
+          this.path = reconstructPath(result.prev, this.source, this.target)
+          console.log('[DijkstraView] Camino encontrado:', this.path, 'Distancia:', targetDistance)
           this.showPath()
         }
       } catch (err) {
@@ -748,13 +796,16 @@ export default {
   flex: 1;
   background: var(--bg-primary);
   position: relative;
-  min-height: 0; /* importante para flex */
+  min-height: 500px; /* mínimo para Cytoscape */
+  min-width: 400px;
   overflow: hidden;
 }
 
 .main > * {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: inherit;
+  min-width: inherit;
 }
 
 .group {
