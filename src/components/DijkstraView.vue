@@ -383,27 +383,25 @@ export default {
 
     submitAddNode() {
       const label = this.forms.addNode.label || `Nodo${this.nodes.length + 1}`
-      const newId = this.generateNodeId()
-      
-      // Asegurar posición válida
-      let x = this.forms.addNode.position?.x
-      let y = this.forms.addNode.position?.y
-      
-      if (x == null || y == null) {
-        x = Math.random() * 400 + 100
-        y = Math.random() * 300 + 100
+      // If canvas API available, add node directly to Cytoscape and refresh local state
+      const pos = this.forms.addNode.position || { x: Math.random() * 400 + 100, y: Math.random() * 300 + 100 }
+      try {
+        if (this.$refs.canvasRef && this.$refs.canvasRef.addNode) {
+          this.$refs.canvasRef.addNode(label, pos, this.forms.addNode.color)
+          // refresh local nodes/edges from canvas
+          const data = this.$refs.canvasRef.getGraphData()
+          this.nodes = data.nodes || []
+          this.edges = data.edges || []
+        } else {
+          // fallback: modify local model and update canvas
+          const newId = this.generateNodeId()
+          const newNode = { id: newId, label, color: this.forms.addNode.color, x: pos.x, y: pos.y }
+          this.nodes.push(newNode)
+          this.updateCanvas()
+        }
+      } catch (err) {
+        console.error('[DijkstraView] submitAddNode error:', err)
       }
-      
-      const newNode = {
-        id: newId,
-        label: label,
-        color: this.forms.addNode.color,
-        x: x,
-        y: y
-      }
-
-      this.nodes.push(newNode)
-      this.updateCanvas()
       this.closeAddNode()
     },
 
@@ -460,18 +458,26 @@ export default {
         this.forms.addEdge.error = 'El peso debe ser un número ≥ 0'
         return
       }
-
-      const newId = this.generateEdgeId()
-      const newEdge = {
-        id: newId,
-        source: this.forms.addEdge.sourceId,
-        target: this.forms.addEdge.targetId,
-        weight: weight,
-        directed: this.forms.addEdge.directed
+      try {
+        if (this.$refs.canvasRef && this.$refs.canvasRef.addEdge) {
+          const res = this.$refs.canvasRef.addEdge({ sourceId: this.forms.addEdge.sourceId, targetId: this.forms.addEdge.targetId, weight, directed: this.forms.addEdge.directed })
+          // refresh local model
+          const data = this.$refs.canvasRef.getGraphData()
+          this.nodes = data.nodes || []
+          this.edges = data.edges || []
+          if (res && res.ok === false) {
+            this.forms.addEdge.error = res.message || 'Error al crear arista'
+          }
+        } else {
+          const newId = this.generateEdgeId()
+          const newEdge = { id: newId, source: this.forms.addEdge.sourceId, target: this.forms.addEdge.targetId, weight, directed: this.forms.addEdge.directed }
+          this.edges.push(newEdge)
+          this.updateCanvas()
+        }
+      } catch (err) {
+        console.error('[DijkstraView] submitAddEdge error:', err)
+        this.forms.addEdge.error = String(err.message || err)
       }
-
-      this.edges.push(newEdge)
-      this.updateCanvas()
       this.closeAddEdge()
     },
 
