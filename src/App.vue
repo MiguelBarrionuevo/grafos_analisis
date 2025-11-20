@@ -17,8 +17,9 @@
       @open-matrix="openMatrixModal"
       @export-graph="openExportModal"
       @import-graph="openImportModal"
-      @open-sort="switchToSortView"
-      @open-help="openHelp"
+  @open-sort="switchToSortView"
+  @open-dijkstra="switchToDijkstraView"
+  @open-help="openHelp"
       @run-johnson="openJohnsonChoice"
       @clear-highlight="clearHighlight"
       @toggle-johnson-mode="setJohnsonMode"
@@ -439,6 +440,8 @@
   <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
   <!-- Vista dedicada para Ordenamiento -->
   <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
+  <!-- Vista dedicada para Dijkstra -->
+  <DijkstraView v-else-if="currentView === 'dijkstra'" @back-to-main="switchToMainView" :getGraphData="getGraphDataSafe" :graphApi="graphRef?.value" />
   <!-- Vista dedicada para Algoritmo Northwest -->
   <NorthwestView v-else-if="currentView === 'northwest'" @back-to-main="switchToMainView" />
 </template>
@@ -463,6 +466,7 @@ const ReconstructTreeView = defineAsyncComponent(() =>
 );
 const SortView = defineAsyncComponent(() => import('./components/SortView.vue'));
 const NorthwestView = defineAsyncComponent(() => import('./components/NorthwestView.vue'));
+const DijkstraView = defineAsyncComponent(() => import('./components/DijkstraView.vue'));
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
@@ -471,9 +475,30 @@ const currentView = ref('main');
 const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
-const switchToSortView = () => { currentView.value = 'sort'; };
-const switchToNorthwestView = () => { currentView.value = 'northwest'; };
+const switchToSortView = () => { saveGraphData(); currentView.value = 'sort'; };
+const switchToNorthwestView = () => { saveGraphData(); currentView.value = 'northwest'; };
+const switchToDijkstraView = () => { saveGraphData(); currentView.value = 'dijkstra'; };
 const switchToMainView = () => { currentView.value = 'main'; };
+
+// Estado para almacenar datos del grafo cuando se cambia de vista
+const savedGraphData = ref(null);
+
+// Función para guardar datos antes de cambiar de vista
+function saveGraphData() {
+  if (graphRef.value?.getGraphData) {
+    savedGraphData.value = graphRef.value.getGraphData();
+  }
+}
+
+// Función segura para obtener datos del grafo
+function getGraphDataSafe() {
+  if (graphRef.value?.getGraphData) {
+    const data = graphRef.value.getGraphData();
+    savedGraphData.value = data;
+    return data;
+  }
+  return savedGraphData.value || { nodes: [], edges: [] };
+}
 
 // === Toggle de modo Johnson estricto ===
 const johnsonStrict = ref(false);

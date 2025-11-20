@@ -82,6 +82,9 @@
         <button class="button" @click="$emit('open-sort')">
           🔀 Sort
         </button>
+        <button class="button" style="margin-top:6px;" @click="$emit('open-dijkstra')">
+          🧭 Dijkstra (Ruta mínima)
+        </button>
       </div>
       <div class="subgroup" style="margin-top: 10px;">
         <h2>Transporte</h2>
@@ -111,7 +114,7 @@
 /* eslint-disable no-undef */
 /* global defineProps */
 import { computed } from 'vue';
-const emit = defineEmits(['toggle-johnson-mode','set-mode','confirm-clear','open-matrix','export-graph','import-graph','open-sort','open-help','run-johnson','run-kruskal','clear-highlight','run-assignment','open-build-tree','open-reconstruct-tree','open-northwest']);
+const emit = defineEmits(['toggle-johnson-mode','set-mode','confirm-clear','open-matrix','export-graph','import-graph','open-sort','open-help','run-johnson','run-kruskal','clear-highlight','run-assignment','open-build-tree','open-reconstruct-tree','open-northwest','open-dijkstra']);
 import { MODES } from '../constants/modes';
 
 const props = defineProps({
@@ -121,7 +124,7 @@ const props = defineProps({
   johnsonStrict: { type: Boolean, default: false }
 });
 
-// Computed proxy so v-model on the toggle reflects the prop and emits changes
+// Computed proxy so v-model on the toggle reflects the prop and emits changes xdxd
 const johnsonMode = computed({
   get: () => props.johnsonStrict,
   set: (v) => emit('toggle-johnson-mode', v)
