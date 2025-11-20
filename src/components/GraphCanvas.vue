@@ -49,6 +49,12 @@ function fmtSlack(x) {
 }
 
 onMounted(() => {
+  console.log('[GraphCanvas] mounting, container:', container.value);
+  try {
+    const rect = container.value?.getBoundingClientRect?.() || null;
+    console.log('[GraphCanvas] container rect:', rect);
+  } catch (err) { /* ignore */ }
+
   cy = cytoscape({
     container: container.value,
     wheelSensitivity: 0.4,
@@ -165,8 +171,8 @@ onMounted(() => {
     ],
     layout: { name: 'preset' }
   });
-
-  bindInteractions();
+  console.log('[GraphCanvas] cytoscape instance created', !!cy);
+  try { bindInteractions(); console.log('[GraphCanvas] bindInteractions attached'); } catch (err) { console.error('[GraphCanvas] bindInteractions error', err); }
 
 });
 
@@ -175,6 +181,7 @@ onBeforeUnmount(() => { if (cy) { cy.destroy(); cy = null; } });
 
 
 function bindInteractions() {
+  console.log('[GraphCanvas] bindInteractions() called');
   // fondo → agregar nodo
   cy.on('tap', (evt) => {
     if (evt.target !== cy) return;
@@ -431,29 +438,52 @@ function getGraphData() {
 
 function loadGraphData(json, { replace = false } = {}) {
   if (replace) cy.elements().remove();
-  const els = [];
+
+  const nodeEls = [];
+  const edgeEls = [];
+  const providedNodes = new Set((json.nodes || []).map(n => n.id));
+
   (json.nodes || []).forEach(n => {
     const base = n.label || n.id;
-    els.push({
+    nodeEls.push({
       group: 'nodes',
       data: { id: n.id, label: base, labelDisplay: base, color: n.color || '#66ccff' },
       position: n.position
     });
   });
+
+  const droppedEdges = [];
   (json.edges || []).forEach(e => {
     const w = Number(e.weight) || 0;
+    const src = e.source; const tgt = e.target;
+    if (!src || !tgt || !providedNodes.has(src) || !providedNodes.has(tgt)) {
+      droppedEdges.push(e);
+      return;
+    }
     // Si johnsonStrict está activo al importar, forzamos dirigidas; no reparamos pares/ciclos aquí.
-    els.push({
+    edgeEls.push({
       group: 'edges',
       data: {
-        id: e.id, source: e.source, target: e.target,
+        id: e.id, source: src, target: tgt,
         weight: w, directed: johnsonStrict ? 1 : (e.directed ? 1 : 0),
         labelText: String(w)
       }
     });
   });
-  cy.add(els);
-  cy.fit(undefined, 40);
+
+  if (droppedEdges.length) {
+    console.warn('[GraphCanvas] loadGraphData: se descartaron aristas por referencias faltantes:', droppedEdges);
+  }
+
+  try {
+    if (nodeEls.length) cy.add(nodeEls);
+    if (edgeEls.length) cy.add(edgeEls);
+    cy.fit(undefined, 40);
+  } catch (err) {
+    console.error('[GraphCanvas] loadGraphData -> error adding elements', err, { nodeCount: nodeEls.length, edgeCount: edgeEls.length });
+    // intentar añadir solo nodos para evitar crash
+    try { if (nodeEls.length) cy.add(nodeEls); } catch (err2) { console.error('[GraphCanvas] re-add nodes error', err2); }
+  }
 }
 
 /** Matriz de adyacencia */
