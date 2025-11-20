@@ -124,7 +124,7 @@ const props = defineProps({
   johnsonStrict: { type: Boolean, default: false }
 });
 
-// Computed proxy so v-model on the toggle reflects the prop and emits changes
+// Computed proxy so v-model on the toggle reflects the prop and emits changes xdxd
 const johnsonMode = computed({
   get: () => props.johnsonStrict,
   set: (v) => emit('toggle-johnson-mode', v)
