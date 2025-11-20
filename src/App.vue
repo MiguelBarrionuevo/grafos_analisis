@@ -441,7 +441,7 @@
   <!-- Vista dedicada para Ordenamiento -->
   <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
   <!-- Vista dedicada para Dijkstra -->
-  <DijkstraView v-else-if="currentView === 'dijkstra'" @back-to-main="switchToMainView" :getGraphData="() => graphRef.value.getGraphData()" :graphApi="graphRef.value" />
+  <DijkstraView v-else-if="currentView === 'dijkstra'" @back-to-main="switchToMainView" :getGraphData="getGraphDataSafe" :graphApi="graphRef?.value" />
   <!-- Vista dedicada para Algoritmo Northwest -->
   <NorthwestView v-else-if="currentView === 'northwest'" @back-to-main="switchToMainView" />
 </template>
@@ -475,10 +475,30 @@ const currentView = ref('main');
 const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
-const switchToSortView = () => { currentView.value = 'sort'; };
-const switchToNorthwestView = () => { currentView.value = 'northwest'; };
-const switchToDijkstraView = () => { currentView.value = 'dijkstra'; };
+const switchToSortView = () => { saveGraphData(); currentView.value = 'sort'; };
+const switchToNorthwestView = () => { saveGraphData(); currentView.value = 'northwest'; };
+const switchToDijkstraView = () => { saveGraphData(); currentView.value = 'dijkstra'; };
 const switchToMainView = () => { currentView.value = 'main'; };
+
+// Estado para almacenar datos del grafo cuando se cambia de vista
+const savedGraphData = ref(null);
+
+// Función para guardar datos antes de cambiar de vista
+function saveGraphData() {
+  if (graphRef.value?.getGraphData) {
+    savedGraphData.value = graphRef.value.getGraphData();
+  }
+}
+
+// Función segura para obtener datos del grafo
+function getGraphDataSafe() {
+  if (graphRef.value?.getGraphData) {
+    const data = graphRef.value.getGraphData();
+    savedGraphData.value = data;
+    return data;
+  }
+  return savedGraphData.value || { nodes: [], edges: [] };
+}
 
 // === Toggle de modo Johnson estricto ===
 const johnsonStrict = ref(false);

@@ -73,25 +73,35 @@ const distStr = ref(null);
 const error = ref('');
 
 function loadNodes(){
-  const data = props.getGraphData();
-  nodes.value = (data?.nodes || []).map(n => ({ id: n.id, label: n.label || n.id }));
-  if(nodes.value.length){ source.value = source.value || nodes.value[0].id; target.value = target.value || nodes.value[0].id; }
+  try {
+    const data = props.getGraphData?.() || { nodes: [], edges: [] };
+    nodes.value = (data?.nodes || []).map(n => ({ id: n.id, label: n.label || n.id }));
+    if(nodes.value.length){ source.value = source.value || nodes.value[0].id; target.value = target.value || nodes.value[0].id; }
+  } catch (err) {
+    console.error('Error loading nodes:', err);
+    nodes.value = [];
+  }
 }
 
 onMounted(()=> loadNodes());
 
 function buildAdj(){
-  const data = props.getGraphData();
-  const adj = {};
-  (data.nodes || []).forEach(n => adj[n.id] = []);
-  (data.edges || []).forEach(e => {
-    const u = e.source; const v = e.target; const w = Number(e.weight) || 0;
-    if(!(u in adj)) adj[u]=[];
-    if(!(v in adj)) adj[v]=[];
-    adj[u].push([v, w]);
-    if(!e.directed){ adj[v].push([u, w]); }
-  });
-  return adj;
+  try {
+    const data = props.getGraphData?.() || { nodes: [], edges: [] };
+    const adj = {};
+    (data.nodes || []).forEach(n => adj[n.id] = []);
+    (data.edges || []).forEach(e => {
+      const u = e.source; const v = e.target; const w = Number(e.weight) || 0;
+      if(!(u in adj)) adj[u]=[];
+      if(!(v in adj)) adj[v]=[];
+      adj[u].push([v, w]);
+      if(!e.directed){ adj[v].push([u, w]); }
+    });
+    return adj;
+  } catch (err) {
+    console.error('Error building adjacency list:', err);
+    return {};
+  }
 }
 
 function formatDist(d){ if(d === Infinity) return '∞'; return String(d); }
@@ -100,7 +110,7 @@ async function runDijkstra(){
   error.value = '';
   distStr.value = null; path.value = [];
   try{
-    const data = props.getGraphData();
+    const data = props.getGraphData?.() || { nodes: [], edges: [] };
     if(!data || !data.nodes.length){ error.value='El grafo está vacío.'; return; }
     if(!source.value || !target.value){ error.value='Selecciona origen y destino.'; return; }
     const adj = buildAdj();
@@ -111,7 +121,7 @@ async function runDijkstra(){
 
     // resaltar en el canvas si se pasa graphApi
     try{
-      if(props.graphApi && props.graphApi.showPath){
+      if(props.graphApi?.showPath){
         props.graphApi.clearPath?.();
         props.graphApi.showPath(path.value);
       }
