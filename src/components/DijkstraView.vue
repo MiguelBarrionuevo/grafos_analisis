@@ -82,12 +82,7 @@
           </div>
           <div v-else style="color:var(--muted)">Selecciona origen y destino, luego calcula.</div>
         </div>
-        <div style="margin-top:10px;color:var(--muted);font-size:12px">
-          <strong>Debug (temporal):</strong>
-          <div style="margin-top:6px;white-space:pre-wrap;background:var(--bg-tertiary);padding:8px;border-radius:4px;overflow:auto;max-height:160px">Algoritmo: {{ algorithmMode }}
-            \nPath JSON: {{ JSON.stringify(path) }}
-          </div>
-        </div>
+        <!-- Debug temporal removido: Algoritmo/Path JSON ya no se muestran en el panel Resultado -->
       </div>
 
       <hr class="sep" />
@@ -780,7 +775,13 @@ export default {
       if (this.source === this.target) {
         this.distStr = '0'
         this.path = [this.source]
-        this.showPath()
+        const mappedSelf = this.mapPathToIds(this.path)
+        if (mappedSelf.unmapped.length) {
+          this.error = 'No fue posible mapear el nodo seleccionado en el canvas.'
+        } else {
+          this.path = mappedSelf.mappedPath
+          this.showPath()
+        }
         return
       }
 
@@ -799,11 +800,41 @@ export default {
           const undirected = this.edges.filter(e => !e.directed)
           if (undirected.length) {
             const list = undirected.map(e => `${e.id || e.source+"→"+e.target}`)
-            // Mostrar advertencia, pero no bloquear: intentaremos cálculo aproximado sobre el grafo completo
             console.warn('[DijkstraView] Advertencia: aristas no dirigidas detectadas:', list)
-            this.error = 'Advertencia: hay aristas no dirigidas. Se usará un cálculo aproximado para grafos no dirigidos.'
-          } else {
-            this.error = ''
+            // No mostrar la advertencia en la UI; solo loguear en consola.
+            // this.error = 'Advertencia: hay aristas no dirigidas. Se usará un cálculo aproximado para grafos no dirigidos.'
+            // fallback: use entire (undirected) adjacency for approximate DFS
+            const adjAll = this.buildAdj()
+            try {
+              const dfsRes = longestPathDFS(adjAll, this.source, this.target, { maxDepth: 45, timeLimitMs: 15000 })
+              console.log('[DijkstraView] Resultado longestPathDFS (undirected fallback):', dfsRes)
+              if (dfsRes.timedOut) {
+                this.error = 'Cálculo interrumpido por límite de tiempo. El grafo podría ser grande/cíclico. Intenta reducir tamaño.'
+                if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+              } else if (!dfsRes.path || dfsRes.path.length === 0) {
+                this.error = 'No se encontró ruta (búsqueda acotada).' 
+                if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+              } else {
+                this.distStr = String(dfsRes.weight)
+                this.path = (dfsRes.path || []).map(String)
+                console.log('[DijkstraView] Camino más largo (DFS undirected):', this.path, 'Peso:', dfsRes.weight)
+                const mappedDFS2 = this.mapPathToIds(this.path)
+                if (mappedDFS2.unmapped.length) {
+                  console.warn('[DijkstraView] Algunos elementos del path DFS undirected no coinciden con ids de nodos:', mappedDFS2.unmapped)
+                  this.error = 'No fue posible mapear algunos elementos del camino a nodos existentes.'
+                  if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+                } else {
+                  this.path = mappedDFS2.mappedPath
+                  console.log('[DijkstraView] Enviando a showPath (DFS undirected):', JSON.stringify(this.path))
+                  this.showPath()
+                }
+              }
+            } catch (err) {
+              console.error('[DijkstraView] Error en longestPathDFS (undirected):', err)
+              this.error = 'Error al calcular ruta más larga: ' + String(err.message)
+              if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+            }
+            return
           }
 
           const adjDirected = this.buildAdjDirected()
@@ -814,7 +845,6 @@ export default {
           }
           const cycle = this.findDirectedCycle(adjDirected)
           if (cycle) {
-            // mostrar ciclo en labels si es posible
             const cycleLabels = cycle.map(id => {
               const n = this.nodes.find(x => x.id === id)
               return n ? (n.label || id) : id
@@ -836,8 +866,16 @@ export default {
               this.distStr = targetDistance.toString()
               this.path = reconstructPath(resultDAG.prev, this.source, this.target).map(String)
               console.log('[DijkstraView] Camino más largo encontrado (DAG):', this.path, 'Distancia:', targetDistance)
-              console.log('[DijkstraView] Enviando a showPath (DAG):', JSON.stringify(this.path))
-              this.showPath()
+              const mapped = this.mapPathToIds(this.path)
+              if (mapped.unmapped.length) {
+                console.warn('[DijkstraView] Algunos elementos del path no coinciden con ids de nodos:', mapped.unmapped)
+                this.error = 'No fue posible mapear algunos elementos del camino a nodos existentes.'
+                if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+              } else {
+                this.path = mapped.mappedPath
+                console.log('[DijkstraView] Enviando a showPath (DAG):', JSON.stringify(this.path))
+                this.showPath()
+              }
             }
           } else {
             // No es DAG: intentar búsqueda DFS acotada (aproximada)
@@ -855,8 +893,16 @@ export default {
                 this.distStr = String(dfsRes.weight)
                 this.path = (dfsRes.path || []).map(String)
                 console.log('[DijkstraView] Camino más largo (DFS aprox):', this.path, 'Peso:', dfsRes.weight)
-                console.log('[DijkstraView] Enviando a showPath (DFS):', JSON.stringify(this.path))
-                this.showPath()
+                const mappedDFS = this.mapPathToIds(this.path)
+                if (mappedDFS.unmapped.length) {
+                  console.warn('[DijkstraView] Algunos elementos del path DFS no coinciden con ids de nodos:', mappedDFS.unmapped)
+                  this.error = 'No fue posible mapear algunos elementos del camino a nodos existentes.'
+                  if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+                } else {
+                  this.path = mappedDFS.mappedPath
+                  console.log('[DijkstraView] Enviando a showPath (DFS):', JSON.stringify(this.path))
+                  this.showPath()
+                }
               }
             } catch (err) {
               console.error('[DijkstraView] Error en longestPathDFS:', err)
@@ -876,7 +922,15 @@ export default {
             this.distStr = targetDistance.toString()
             this.path = reconstructPath(result.prev, this.source, this.target)
             console.log('[DijkstraView] Camino encontrado:', this.path, 'Distancia:', targetDistance)
-            this.showPath()
+            const mapped = this.mapPathToIds(this.path)
+            if (mapped.unmapped.length) {
+              console.warn('[DijkstraView] Algunos elementos del path no coinciden con ids de nodos:', mapped.unmapped)
+              this.error = 'No fue posible mapear algunos elementos del camino a nodos existentes.'
+              this.clearPath()
+            } else {
+              this.path = mapped.mappedPath
+              this.showPath()
+            }
           }
         }
       } catch (err) {
@@ -892,6 +946,38 @@ export default {
           this.$refs.canvasRef.showPath(this.path)
         }
       })
+    },
+
+    // Convierte elementos de un path (posiblemente labels) a node ids existentes
+    mapPathToIds(pathArr) {
+      const mapped = []
+      const unmapped = []
+      for (const p of (pathArr || [])) {
+        if (p === null || p === undefined) {
+          unmapped.push(p)
+          continue
+        }
+        // Si ya es un id válido
+        let node = this.nodes.find(n => n.id === String(p))
+        if (node) {
+          mapped.push(node.id)
+          continue
+        }
+        // Buscar por label (exacto)
+        node = this.nodes.find(n => (n.label && String(n.label) === String(p)))
+        if (node) {
+          mapped.push(node.id)
+          continue
+        }
+        // Buscar por labelDisplay u otras variantes
+        node = this.nodes.find(n => (n.labelDisplay && String(n.labelDisplay) === String(p)))
+        if (node) {
+          mapped.push(node.id)
+          continue
+        }
+        unmapped.push(p)
+      }
+      return { mappedPath: mapped, unmapped }
     },
 
     clearPath() {

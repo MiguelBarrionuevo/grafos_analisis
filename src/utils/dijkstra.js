@@ -106,3 +106,59 @@ export function longestPathDAG(adj, source){
 
   return { dist, prev, isDAG };
 }
+
+// Búsqueda DFS acotada para encontrar una ruta simple de máximo peso entre source y target.
+// adj: { nodeId: [ [neighborId, weight], ... ], ... }
+// options: { maxDepth, timeLimitMs }
+// Retorna { weight, path, timedOut }
+export function longestPathDFS(adj, source, target, options = {}){
+  const nodes = Object.keys(adj)
+  if (!nodes.includes(source) || !nodes.includes(target)) throw new Error('Source/target no están en el grafo')
+  const maxDepth = options.maxDepth || Math.min(20, nodes.length)
+  const timeLimitMs = options.timeLimitMs || 3000
+
+  // precompute global max edge weight for simple pruning
+  let globalMaxEdge = 0
+  for(const u of nodes){
+    for(const [,w] of (adj[u]||[])){
+      if (typeof w === 'number' && w > globalMaxEdge) globalMaxEdge = w
+    }
+  }
+
+  const start = Date.now()
+  let timedOut = false
+  let bestWeight = -Infinity
+  let bestPath = []
+
+  const visited = new Set()
+
+  function dfs(u, acc, path){
+    if (Date.now() - start > timeLimitMs){ timedOut = true; return }
+    if (path.length > maxDepth) return
+    if (u === target){
+      if (acc > bestWeight){ bestWeight = acc; bestPath = path.slice() }
+      // continue exploring in case we can find longer via other nodes
+    }
+
+    // optimistic bound: remaining nodes * globalMaxEdge
+    const remaining = Math.max(0, nodes.length - path.length)
+    const optimistic = acc + remaining * globalMaxEdge
+    if (optimistic <= bestWeight) return
+
+    for(const [v,w] of (adj[u]||[])){
+      if (timedOut) return
+      if (visited.has(v)) continue
+      if (typeof w !== 'number') continue
+      visited.add(v)
+      path.push(v)
+      dfs(v, acc + w, path)
+      path.pop()
+      visited.delete(v)
+    }
+  }
+
+  visited.add(source)
+  dfs(source, 0, [source])
+
+  return { weight: bestWeight, path: bestPath, timedOut }
+}
