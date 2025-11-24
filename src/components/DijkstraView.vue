@@ -82,6 +82,12 @@
           </div>
           <div v-else style="color:var(--muted)">Selecciona origen y destino, luego calcula.</div>
         </div>
+        <div style="margin-top:10px;color:var(--muted);font-size:12px">
+          <strong>Debug (temporal):</strong>
+          <div style="margin-top:6px;white-space:pre-wrap;background:var(--bg-tertiary);padding:8px;border-radius:4px;overflow:auto;max-height:160px">Algoritmo: {{ algorithmMode }}
+            \nPath JSON: {{ JSON.stringify(path) }}
+          </div>
+        </div>
       </div>
 
       <hr class="sep" />
@@ -268,7 +274,7 @@
 <script>
 import GraphCanvas from './GraphCanvas.vue'
 import GraphModal from './GraphModal.vue'
-import { dijkstraAdj, reconstructPath, longestPathDAG } from '../utils/dijkstra.js'
+import { dijkstraAdj, reconstructPath, longestPathDAG, longestPathDFS } from '../utils/dijkstra.js'
 import { MODES } from '../constants/modes.js'
 
 export default {
@@ -701,6 +707,61 @@ export default {
       return adj
     },
 
+    // Construye la adyacencia considerando solo aristas dirigidas (útil para longestPath)
+    buildAdjDirected() {
+      const adj = {}
+      this.nodes.forEach(n => { adj[n.id] = [] })
+      this.edges.forEach(e => {
+        const w = parseFloat(e.weight) || 1
+        if (e.directed) {
+          adj[e.source].push([e.target, w])
+        }
+      })
+      return adj
+    },
+
+    // Detecta un ciclo dirigido y devuelve un array con nodos del ciclo (o null si no hay)
+    findDirectedCycle(adj) {
+      const visiting = new Set()
+      const visited = new Set()
+      const parent = {}
+
+      const nodes = Object.keys(adj)
+
+      const dfs = (u) => {
+        visiting.add(u)
+        const nbrs = adj[u] || []
+        for (const [v] of nbrs) {
+          if (!visited.has(v) && !visiting.has(v)) {
+            parent[v] = u
+            const res = dfs(v)
+            if (res) return res
+          } else if (visiting.has(v)) {
+            // reconstrucir ciclo desde v hasta u
+            const cycle = [v]
+            let cur = u
+            while (cur && cur !== v && cycle.length < nodes.length + 5) {
+              cycle.push(cur)
+              cur = parent[cur]
+            }
+            cycle.push(v)
+            return cycle.reverse()
+          }
+        }
+        visiting.delete(u)
+        visited.add(u)
+        return null
+      }
+
+      for (const n of nodes) {
+        if (!visited.has(n)) {
+          const res = dfs(n)
+          if (res) return res
+        }
+      }
+      return null
+    },
+
     runDijkstra() {
       this.error = ''
       this.distStr = null
@@ -725,30 +786,81 @@ export default {
 
       try {
         const adj = this.buildAdj()
-        console.log('[DijkstraView] Matriz de adyacencia:', adj)
+        try {
+          console.log('[DijkstraView] Matriz de adyacencia (object):', adj)
+          console.log('[DijkstraView] Matriz de adyacencia (json):\n' + JSON.stringify(adj, null, 2))
+        } catch (e) {
+          console.log('[DijkstraView] Matriz de adyacencia (toString):', String(adj))
+        }
+        console.log('[DijkstraView] Nodos:', this.nodes.length, ' Aristas:', this.edges.length)
 
         if (this.algorithmMode === 'longest') {
-          // Usar algoritmo para ruta más larga en DAG
-          const result = longestPathDAG(adj, this.source)
-          console.log('[DijkstraView] Resultado LongestPathDAG:', result)
-            if (!result.isDAG) {
-              this.error = 'El grafo no es acíclico. El modo "Más larga" solo funciona en grafos dirigidos acíclicos (DAG). Revisa que las aristas estén marcadas como dirigidas.'
-              // No limpiar el estado (clearPath borra también el mensaje de error y los selects).
-              // Solo quitar cualquier resaltado previo en el canvas para que el usuario pueda ver el error.
-              if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) {
-                this.$refs.canvasRef.clearPath()
-              }
-              return
+          // Validaciones previas para modo 'longest'
+          const undirected = this.edges.filter(e => !e.directed)
+          if (undirected.length) {
+            const list = undirected.map(e => `${e.id || e.source+"→"+e.target}`)
+            this.error = 'Hay aristas no dirigidas en el grafo: ' + list.join(', ') + '. Marca las aristas como dirigidas para usar "Más larga".'
+            if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+            return
+          }
+
+          const adjDirected = this.buildAdjDirected()
+          try {
+            console.log('[DijkstraView] Matriz adyacencia dirigida (json):\n' + JSON.stringify(adjDirected, null, 2))
+          } catch (e) {
+            console.log('[DijkstraView] Matriz adyacencia dirigida:', adjDirected)
+          }
+          const cycle = this.findDirectedCycle(adjDirected)
+          if (cycle) {
+            // mostrar ciclo en labels si es posible
+            const cycleLabels = cycle.map(id => {
+              const n = this.nodes.find(x => x.id === id)
+              return n ? (n.label || id) : id
+            })
+            this.error = 'Se detectó un ciclo dirigido: ' + cycleLabels.join(' → ') + '. El modo "Más larga" requiere un DAG.'
+            if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+            return
+          }
+
+          // Usar algoritmo para ruta más larga en DAG si corresponde
+          const resultDAG = longestPathDAG(adjDirected, this.source)
+          console.log('[DijkstraView] Resultado LongestPathDAG:', resultDAG)
+          if (resultDAG.isDAG) {
+            const targetDistance = resultDAG.dist.get(this.target)
+            if (targetDistance === -Infinity) {
+              this.error = 'No hay camino entre los nodos seleccionados.'
+              if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+            } else {
+              this.distStr = targetDistance.toString()
+              this.path = reconstructPath(resultDAG.prev, this.source, this.target).map(String)
+              console.log('[DijkstraView] Camino más largo encontrado (DAG):', this.path, 'Distancia:', targetDistance)
+              console.log('[DijkstraView] Enviando a showPath (DAG):', JSON.stringify(this.path))
+              this.showPath()
             }
-          const targetDistance = result.dist.get(this.target)
-          if (targetDistance === -Infinity) {
-            this.error = 'No hay camino entre los nodos seleccionados.'
-            this.clearPath()
           } else {
-            this.distStr = targetDistance.toString()
-            this.path = reconstructPath(result.prev, this.source, this.target)
-            console.log('[DijkstraView] Camino más largo encontrado:', this.path, 'Distancia:', targetDistance)
-            this.showPath()
+            // No es DAG: intentar búsqueda DFS acotada (aproximada)
+            const adjAll = this.buildAdj()
+            try {
+              const dfsRes = longestPathDFS(adjAll, this.source, this.target, { maxDepth: 30, timeLimitMs: 10000 })
+              console.log('[DijkstraView] Resultado longestPathDFS:', dfsRes)
+              if (dfsRes.timedOut) {
+                this.error = 'Cálculo interrumpido por límite de tiempo. El grafo podría ser grande/cíclico. Intenta convertirlo a DAG o reducir tamaño.'
+                if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+              } else if (!dfsRes.path || dfsRes.path.length === 0) {
+                this.error = 'No se encontró ruta (búsqueda acotada).' 
+                if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+              } else {
+                this.distStr = String(dfsRes.weight)
+                this.path = (dfsRes.path || []).map(String)
+                console.log('[DijkstraView] Camino más largo (DFS aprox):', this.path, 'Peso:', dfsRes.weight)
+                console.log('[DijkstraView] Enviando a showPath (DFS):', JSON.stringify(this.path))
+                this.showPath()
+              }
+            } catch (err) {
+              console.error('[DijkstraView] Error en longestPathDFS:', err)
+              this.error = 'Error al calcular ruta más larga: ' + String(err.message)
+              if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
+            }
           }
         } else {
           // Modo por defecto: Dijkstra (ruta más corta)
