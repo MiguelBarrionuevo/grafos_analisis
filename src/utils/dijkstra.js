@@ -47,3 +47,62 @@ export function reconstructPath(prevMap, source, target){
   while(u !== null && u !== undefined){ path.push(u); if(u === source) break; u = prevMap.get ? prevMap.get(u) : prevMap[u]; }
   return path.reverse();
 }
+
+// Calcula la ruta más larga desde `source` en un DAG dirigido.
+// adj: { nodeId: [ [neighborId, weight], ... ], ... }
+// Devuelve { dist: Map(nodeId -> distancia o -Infinity), prev: Map(prevNode), isDAG: boolean }
+export function longestPathDAG(adj, source){
+  const nodes = Object.keys(adj);
+  // Construir in-degree para Kahn
+  const indeg = {};
+  nodes.forEach(n => indeg[n] = 0);
+  for(const u of nodes){
+    const nbrs = adj[u] || [];
+    for(const [v] of nbrs){
+      if(indeg[v] === undefined) indeg[v] = 0;
+      indeg[v]++;
+    }
+  }
+
+  // Kahn's algorithm for topo order
+  const q = [];
+  for(const n of Object.keys(indeg)) if(indeg[n] === 0) q.push(n);
+  const topo = [];
+  while(q.length){
+    const u = q.shift(); topo.push(u);
+    const nbrs = adj[u] || [];
+    for(const [v] of nbrs){
+      indeg[v]--;
+      if(indeg[v] === 0) q.push(v);
+    }
+  }
+
+  const isDAG = topo.length === Object.keys(adj).length;
+
+  const dist = new Map();
+  const prev = new Map();
+  nodes.forEach(n => { dist.set(n, -Infinity); prev.set(n, null); });
+  if(!dist.has(source)) throw new Error('Source node not in graph');
+  dist.set(source, 0);
+
+  if(!isDAG){
+    // No es DAG: devolver indicando que no se puede usar este método
+    return { dist, prev, isDAG };
+  }
+
+  // Procesar en orden topológico
+  for(const u of topo){
+    const du = dist.get(u);
+    if(du === -Infinity) continue; // inalcanzable
+    for(const [v,w] of (adj[u]||[])){
+      if (typeof w !== 'number') continue;
+      const alt = du + w;
+      if(alt > dist.get(v)){
+        dist.set(v, alt);
+        prev.set(v, u);
+      }
+    }
+  }
+
+  return { dist, prev, isDAG };
+}

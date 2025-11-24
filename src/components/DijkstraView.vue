@@ -57,6 +57,12 @@
           <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.label || n.id }}</option>
         </select>
 
+        <label class="label">Modo de ruta</label>
+        <select v-model="algorithmMode" class="input" title="El modo 'Más larga' sólo funciona en grafos dirigidos acíclicos (DAG)">
+          <option value="shortest">Más corta (Dijkstra)</option>
+          <option value="longest">Más larga (solo DAG)</option>
+        </select>
+
         <div style="margin-top:10px; display:flex; gap:8px;">
           <button class="button" @click="runDijkstra" :disabled="!source || !target">🧭 Calcular</button>
           <button class="button" @click="clearPath">🧹 Limpiar ruta</button>
@@ -262,7 +268,7 @@
 <script>
 import GraphCanvas from './GraphCanvas.vue'
 import GraphModal from './GraphModal.vue'
-import { dijkstraAdj, reconstructPath } from '../utils/dijkstra.js'
+import { dijkstraAdj, reconstructPath, longestPathDAG } from '../utils/dijkstra.js'
 import { MODES } from '../constants/modes.js'
 
 export default {
@@ -283,12 +289,14 @@ export default {
       nodes: [],
       edges: [],
       
-      // Dijkstra
+      // Dijkstra / Paths
       source: '',
       target: '',
       distStr: null,
       path: [],
       error: '',
+      // Algoritmo: 'shortest' (Dijkstra) o 'longest' (solo DAG)
+      algorithmMode: 'shortest',
 
       // Modales
       modals: {
@@ -718,24 +726,48 @@ export default {
       try {
         const adj = this.buildAdj()
         console.log('[DijkstraView] Matriz de adyacencia:', adj)
-        
-        const result = dijkstraAdj(adj, this.source)
-        console.log('[DijkstraView] Resultado Dijkstra:', result)
-        
-        const targetDistance = result.dist.get(this.target)
-        if (targetDistance === Infinity) {
-          this.error = 'No hay camino entre los nodos seleccionados.'
-          this.clearPath()
+
+        if (this.algorithmMode === 'longest') {
+          // Usar algoritmo para ruta más larga en DAG
+          const result = longestPathDAG(adj, this.source)
+          console.log('[DijkstraView] Resultado LongestPathDAG:', result)
+            if (!result.isDAG) {
+              this.error = 'El grafo no es acíclico. El modo "Más larga" solo funciona en grafos dirigidos acíclicos (DAG). Revisa que las aristas estén marcadas como dirigidas.'
+              // No limpiar el estado (clearPath borra también el mensaje de error y los selects).
+              // Solo quitar cualquier resaltado previo en el canvas para que el usuario pueda ver el error.
+              if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) {
+                this.$refs.canvasRef.clearPath()
+              }
+              return
+            }
+          const targetDistance = result.dist.get(this.target)
+          if (targetDistance === -Infinity) {
+            this.error = 'No hay camino entre los nodos seleccionados.'
+            this.clearPath()
+          } else {
+            this.distStr = targetDistance.toString()
+            this.path = reconstructPath(result.prev, this.source, this.target)
+            console.log('[DijkstraView] Camino más largo encontrado:', this.path, 'Distancia:', targetDistance)
+            this.showPath()
+          }
         } else {
-          this.distStr = targetDistance.toString()
-          // Reconstruir el camino
-          this.path = reconstructPath(result.prev, this.source, this.target)
-          console.log('[DijkstraView] Camino encontrado:', this.path, 'Distancia:', targetDistance)
-          this.showPath()
+          // Modo por defecto: Dijkstra (ruta más corta)
+          const result = dijkstraAdj(adj, this.source)
+          console.log('[DijkstraView] Resultado Dijkstra:', result)
+          const targetDistance = result.dist.get(this.target)
+          if (targetDistance === Infinity) {
+            this.error = 'No hay camino entre los nodos seleccionados.'
+            this.clearPath()
+          } else {
+            this.distStr = targetDistance.toString()
+            this.path = reconstructPath(result.prev, this.source, this.target)
+            console.log('[DijkstraView] Camino encontrado:', this.path, 'Distancia:', targetDistance)
+            this.showPath()
+          }
         }
       } catch (err) {
-        console.error('[DijkstraView] Error en Dijkstra:', err)
-        this.error = 'Error al ejecutar Dijkstra: ' + err.message
+        console.error('[DijkstraView] Error en ejecución:', err)
+        this.error = 'Error al ejecutar el algoritmo: ' + err.message
         this.clearPath()
       }
     },
