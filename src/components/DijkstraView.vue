@@ -799,9 +799,11 @@ export default {
           const undirected = this.edges.filter(e => !e.directed)
           if (undirected.length) {
             const list = undirected.map(e => `${e.id || e.source+"→"+e.target}`)
-            this.error = 'Hay aristas no dirigidas en el grafo: ' + list.join(', ') + '. Marca las aristas como dirigidas para usar "Más larga".'
-            if (this.$refs.canvasRef && this.$refs.canvasRef.clearPath) this.$refs.canvasRef.clearPath()
-            return
+            // Mostrar advertencia, pero no bloquear: intentaremos cálculo aproximado sobre el grafo completo
+            console.warn('[DijkstraView] Advertencia: aristas no dirigidas detectadas:', list)
+            this.error = 'Advertencia: hay aristas no dirigidas. Se usará un cálculo aproximado para grafos no dirigidos.'
+          } else {
+            this.error = ''
           }
 
           const adjDirected = this.buildAdjDirected()
@@ -841,7 +843,7 @@ export default {
             // No es DAG: intentar búsqueda DFS acotada (aproximada)
             const adjAll = this.buildAdj()
             try {
-              const dfsRes = longestPathDFS(adjAll, this.source, this.target, { maxDepth: 30, timeLimitMs: 10000 })
+              const dfsRes = longestPathDFS(adjAll, this.source, this.target, { maxDepth: 45, timeLimitMs: 15000 })
               console.log('[DijkstraView] Resultado longestPathDFS:', dfsRes)
               if (dfsRes.timedOut) {
                 this.error = 'Cálculo interrumpido por límite de tiempo. El grafo podría ser grande/cíclico. Intenta convertirlo a DAG o reducir tamaño.'
