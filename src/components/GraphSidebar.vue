@@ -77,6 +77,14 @@
     <hr class="sep" />
 
     <div class="group">
+      <h2>Lógica Difusa</h2>
+      <button class="button" @click="matlabAPI.openFuzzyLogic()">
+        <i class="fas fa-brain"></i> Abrir en MATLAB
+      </button>
+    </div>
+    <hr class="sep" />
+
+    <div class="group">
       <h2>Arboles Binarios de Busqueda</h2>
       <button class="button" @click="$emit('open-build-tree')">🌳 Construir Arboles</button>
       <button class="button" @click="$emit('open-reconstruct-tree')">🌿 Reconstruir Arboles</button>
@@ -96,6 +104,7 @@
 /* global defineProps */
 import { computed } from 'vue';
 import { MODES } from '../constants/modes';
+import { matlabAPI } from '../utils/matlab-integration.js';
 
 const props = defineProps({
   mode: { type: String, default: MODES.ADD_NODE },
@@ -114,5 +123,3 @@ const modeLabel = computed(() => {
   }
 });
 </script>
-
-
