@@ -27,8 +27,8 @@ export const matlabAPI = {
    * Abre la aplicación de Lógica Difusa (Fuzzy Logic) en MATLAB.
    */
   openFuzzyLogic() {
-    // Abre la aplicación Fuzzy Logic Designer
-    this.runCommand('fuzzyLogicDesigner()');
+    // Abre la interfaz clásica de Fuzzy Logic
+    this.runCommand('fuzzy');
   },
 
   /**
@@ -42,7 +42,28 @@ export const matlabAPI = {
     }
     // Convertir la ruta a formato compatible con MATLAB
     const normalizedPath = filePath.replace(/\\/g, '/');
-    // Abrir el archivo en el editor de lógica difusa
-    this.runCommand(`fuzzyLogicDesigner('${normalizedPath}')`);
+    // Abrir el archivo en el editor de lógica difusa clásico
+    this.runCommand(`fuzzy('${normalizedPath}')`);
+  },
+
+  /**
+   * Abre un archivo .fis desde su contenido (para navegadores que no permiten acceso directo a rutas)
+   * @param {string} fileName - Nombre del archivo .fis
+   * @param {string} fileContent - Contenido del archivo .fis
+   */
+  openFuzzyFileFromContent(fileName, fileContent) {
+    if (!fileName || !fileContent) {
+      console.error('MATLAB API: Faltan datos del archivo.');
+      return;
+    }
+    
+    // Codificar el contenido en base64 para pasarlo de forma segura
+    const base64Content = btoa(unescape(encodeURIComponent(fileContent)));
+    const tempPath = `${fileName}`;
+    
+    // Crear un comando que escriba el archivo en la carpeta temporal y lo abra
+    const matlabCommand = `tempFile=fullfile(tempdir,'${tempPath}');fid=fopen(tempFile,'w');content=char(matlab.net.base64decode('${base64Content}'));fprintf(fid,'%s',content);fclose(fid);fuzzy(tempFile);`;
+    
+    this.runCommand(matlabCommand);
   }
 };

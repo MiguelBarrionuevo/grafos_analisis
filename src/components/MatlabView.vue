@@ -165,7 +165,7 @@ const triggerFileSelect = () => {
   fileInput.value?.click();
 };
 
-const handleFileSelect = (event) => {
+const handleFileSelect = async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
 
@@ -174,11 +174,17 @@ const handleFileSelect = (event) => {
     return;
   }
 
-  // Obtener la ruta completa del archivo
-  const filePath = file.path || file.webkitRelativePath || file.name;
-  
-  // Intentar abrir el archivo en MATLAB
-  matlabAPI.openFuzzyFile(filePath);
+  try {
+    // Leer el contenido del archivo
+    const fileContent = await file.text();
+    
+    // Enviar el contenido del archivo y el nombre a MATLAB
+    matlabAPI.openFuzzyFileFromContent(file.name, fileContent);
+    
+  } catch (error) {
+    console.error('Error al leer el archivo:', error);
+    alert('Error al leer el archivo. Por favor intenta nuevamente.');
+  }
   
   // Limpiar el input para permitir seleccionar el mismo archivo nuevamente
   event.target.value = '';
