@@ -196,21 +196,24 @@ const handleFileSelect = async (event) => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: radial-gradient(1200px 600px at 20% 10%, #0b1325 0%, transparent 60%),
+              radial-gradient(1000px 1000px at 80% 30%, #0a1a2f 0%, transparent 50%),
+              #0f172a;
   overflow: hidden;
 }
 
 .header {
-  background: rgba(255, 255, 255, 0.98);
+  background: #111827;
   padding: 1.5rem 2rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid #1f2937;
   display: flex;
   align-items: center;
   gap: 1.5rem;
 }
 
 .back-button {
-  background: #667eea;
+  background: #3b82f6;
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -222,13 +225,13 @@ const handleFileSelect = async (event) => {
 }
 
 .back-button:hover {
-  background: #5568d3;
+  background: #2563eb;
   transform: translateX(-3px);
 }
 
 .header h1 {
   margin: 0;
-  color: #2d3748;
+  color: #e5e7eb;
   font-size: 2rem;
 }
 
@@ -249,20 +252,21 @@ const handleFileSelect = async (event) => {
 }
 
 .info-card {
-  background: white;
+  background: #111827;
+  border: 1px solid #1f2937;
   border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .info-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.2);
 }
 
 .info-card h2 {
-  color: #667eea;
+  color: #3b82f6;
   margin: 0 0 1rem 0;
   display: flex;
   align-items: center;
@@ -271,7 +275,7 @@ const handleFileSelect = async (event) => {
 }
 
 .info-card p {
-  color: #4a5568;
+  color: #e5e7eb;
   line-height: 1.7;
   margin: 0 0 1rem 0;
 }
@@ -279,14 +283,14 @@ const handleFileSelect = async (event) => {
 .info-card ul {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
-  color: #4a5568;
+  color: #e5e7eb;
   line-height: 1.8;
 }
 
 .info-card ol {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
-  color: #4a5568;
+  color: #e5e7eb;
   line-height: 1.8;
 }
 
@@ -295,26 +299,28 @@ const handleFileSelect = async (event) => {
 }
 
 .example {
-  background: #f7fafc;
+  background: #1f2937;
   padding: 1.5rem;
   border-radius: 8px;
   margin: 1rem 0;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #3b82f6;
 }
 
 .example h3 {
-  color: #2d3748;
+  color: #e5e7eb;
   margin: 0 0 0.75rem 0;
   font-size: 1.1rem;
 }
 
 .example p {
   margin: 0 0 0.75rem 0;
+  color: #e5e7eb;
 }
 
 .example ul {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
+  color: #e5e7eb;
 }
 
 .example li {
@@ -323,17 +329,18 @@ const handleFileSelect = async (event) => {
 }
 
 .actions-section {
-  background: white;
+  background: #111827;
+  border: 1px solid #1f2937;
   border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
   height: fit-content;
 }
 
 .actions-section h2 {
-  color: #667eea;
+  color: #3b82f6;
   margin: 0 0 1rem 0;
   display: flex;
   align-items: center;
@@ -342,7 +349,7 @@ const handleFileSelect = async (event) => {
 }
 
 .action-description {
-  color: #4a5568;
+  color: #9ca3af;
   line-height: 1.6;
   margin-bottom: 1.5rem;
 }
@@ -383,30 +390,30 @@ const handleFileSelect = async (event) => {
 }
 
 .action-button.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
 }
 
 .action-button.primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
 }
 
 .action-button.secondary {
-  background: #f7fafc;
-  color: #667eea;
-  border: 2px solid #667eea;
+  background: #1f2937;
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
 }
 
 .action-button.secondary:hover {
-  background: #667eea;
+  background: #3b82f6;
   color: white;
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
 }
 
 .help-text {
-  background: #f7fafc;
+  background: #1f2937;
   padding: 1rem;
   border-radius: 8px;
   display: flex;
@@ -415,24 +422,24 @@ const handleFileSelect = async (event) => {
 }
 
 .help-text i {
-  color: #667eea;
+  color: #3b82f6;
   font-size: 1.2rem;
   margin-top: 0.2rem;
 }
 
 .help-text p {
-  color: #4a5568;
+  color: #9ca3af;
   line-height: 1.6;
   margin: 0;
   font-size: 0.9rem;
 }
 
 .help-text code {
-  background: #e2e8f0;
+  background: #111827;
   padding: 0.2rem 0.4rem;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
-  color: #667eea;
+  color: #3b82f6;
   font-weight: 600;
 }
 
