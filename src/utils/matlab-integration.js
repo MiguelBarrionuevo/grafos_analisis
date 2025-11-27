@@ -21,21 +21,28 @@ export const matlabAPI = {
       console.error('MATLAB API: no se pudo abrir el esquema matlab:', err);
       alert('No se pudo abrir MATLAB desde el navegador. Si MATLAB está instalado, ejecuta el script de registro en tools\\matlab-handler\\register-matlab-protocol.ps1 como Administrador para asociar el protocolo matlab:');
     }
-    // Añadir un aviso instructivo si el usuario no tiene el protocolo registrado.
-    setTimeout(() => {
-      // No hay forma fiable desde JS de detectar si el intento falló; mostramos instrucciones
-      // proactivas para ayudar al usuario.
-      const msg = `Si MATLAB no se abrió, registra el protocolo 'matlab:' ejecutando como Administrador en la raíz del proyecto:\n\npowershell -ExecutionPolicy Bypass -File "tools\\matlab-handler\\register-matlab-protocol.ps1"\n\nO ejecuta el instalador de MATLAB y elige 'Repair'.`;
-      // Log con instrucciones; no hacemos alert repetido para no molestar.
-      console.info('MATLAB API: instrucciones si el protocolo matlab: no está registrado. Ejecuta el script:', msg);
-    }, 500);
   },
 
   /**
    * Abre la aplicación de Lógica Difusa (Fuzzy Logic) en MATLAB.
    */
   openFuzzyLogic() {
-    // Reemplaza 'fuzzyLogicApp()' con el comando real que necesitas ejecutar.
-    this.runCommand('fuzzyLogicApp()');
+    // Abre la aplicación Fuzzy Logic Designer
+    this.runCommand('fuzzyLogicDesigner()');
+  },
+
+  /**
+   * Abre un archivo .fis (Fuzzy Inference System) en MATLAB.
+   * @param {string} filePath - Ruta absoluta al archivo .fis
+   */
+  openFuzzyFile(filePath) {
+    if (!filePath) {
+      console.error('MATLAB API: No se proporcionó ruta de archivo.');
+      return;
+    }
+    // Convertir la ruta a formato compatible con MATLAB
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    // Abrir el archivo en el editor de lógica difusa
+    this.runCommand(`fuzzyLogicDesigner('${normalizedPath}')`);
   }
 };

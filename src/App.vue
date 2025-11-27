@@ -2,6 +2,9 @@
   <div v-if="currentView === 'main'" class="app-layout">
     <header class="header">
       <h1>Analisis de Algoritmos - Lagartos Del Parque 🦎</h1>
+      <button class="matlab-header-button" @click="switchToMatlabView">
+        <i class="fas fa-brain"></i> MATLAB
+      </button>
     </header>
 
     <GraphSidebar
@@ -351,6 +354,9 @@
 
   <!-- Vista dedicada para Reconstruir Árboles -->
   <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
+
+  <!-- Vista dedicada para MATLAB -->
+  <MatlabView v-else-if="currentView === 'matlab'" @back-to-main="switchToMainView" />
 </template>
 
 <script setup>
@@ -370,6 +376,9 @@ const BinaryTreeView = defineAsyncComponent(() =>
 const ReconstructTreeView = defineAsyncComponent(() =>
   import('./components/ReconstructTreeView.vue')
 );
+const MatlabView = defineAsyncComponent(() =>
+  import('./components/MatlabView.vue')
+);
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
@@ -378,6 +387,7 @@ const currentView = ref('main');
 const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
+const switchToMatlabView = () => { currentView.value = 'matlab'; };
 const switchToMainView = () => { currentView.value = 'main'; };
 
 // === Toggle de modo Johnson estricto ===
