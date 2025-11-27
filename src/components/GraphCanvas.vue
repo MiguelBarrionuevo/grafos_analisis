@@ -11,7 +11,7 @@
 </template>
 
 <script setup>
-// @ts-nocheck
+// @ts-nocheck   bbbdddd
 /* eslint-disable no-undef */
 /* global defineProps, defineExpose */
 import { onMounted, onBeforeUnmount, ref, getCurrentInstance } from 'vue';
@@ -299,12 +299,34 @@ function clearMST() {
 function showPath(nodeIds){
   try{
     cy.elements().removeClass('dijkstra').addClass('dim');
-    nodeIds.forEach((id, idx)=>{
+    // Normalize nodeIds: if an id isn't found, try to match by node label or labelDisplay
+    const normalized = [];
+    nodeIds.forEach(id => {
+      let n = cy.getElementById(id);
+      if (!n || !n.nonempty()) {
+        // try matching by label or labelDisplay
+        const found = cy.nodes().filter(ele => {
+          const lbl = ele.data('label');
+          const ld = ele.data('labelDisplay');
+          return (lbl === id) || (ld === id);
+        });
+        if (found && found.nonempty()) {
+          n = found[0];
+          console.log('[GraphCanvas] showPath: mapped label', id, '-> node id', n.id());
+        } else {
+          console.warn('[GraphCanvas] showPath: node not found for', id);
+          n = null;
+        }
+      }
+      normalized.push(n ? n.id() : id);
+    });
+
+    normalized.forEach((id, idx)=>{
       const n = cy.getElementById(id);
       if(n && n.nonempty()){ n.removeClass('dim').addClass('dijkstra'); }
-      if(idx < nodeIds.length - 1){
-        // find edge between id -> next
-        const next = nodeIds[idx+1];
+      if(idx < normalized.length - 1){
+        // find edge between id -> next (consider directed flag stored as 1/0)
+        const next = normalized[idx+1];
         const e = cy.edges().filter(ele => (ele.data('source')===id && ele.data('target')===next) || (!ele.data('directed') && ele.data('source')===next && ele.data('target')===id));
         if(e && e.nonempty()){ e.removeClass('dim').addClass('dijkstra'); e.source().removeClass('dim').addClass('dijkstra'); e.target().removeClass('dim').addClass('dijkstra'); }
       }
