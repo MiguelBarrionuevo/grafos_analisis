@@ -342,7 +342,8 @@ input[type="color"].color-input::-moz-color-swatch {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #6d798b;
+  /* Color más llamativo en estado no activado: usar verde de acento */
+  background-color: var(--accent); /* verde (accent) */
   transition: .3s;
   border-radius: 34px;
 }

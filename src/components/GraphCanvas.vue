@@ -1,9 +1,17 @@
 <template>
-  <div ref="container" class="canvas"></div>
+  <div class="canvas-wrap" style="position:relative;height:100%;width:100%">
+    <div ref="container" class="canvas"></div>
+    <div ref="mstOverlay" class="mst-overlay" aria-hidden="true">
+      <div class="mst-content">
+        <span class="mst-label">MST: <span class="mst-value">0</span></span>
+        <button class="mst-close" title="Cerrar" @click="clearMST">✕</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-// @ts-nocheck
+// @ts-nocheck   bbbdddd
 /* eslint-disable no-undef */
 /* global defineProps, defineExpose */
 import { onMounted, onBeforeUnmount, ref, getCurrentInstance } from 'vue';
@@ -15,6 +23,7 @@ const props = defineProps({
 });
 
 const container = ref(null);
+const mstOverlay = ref(null);
 let cy = null;
 
 // ===== Estado para Johnson/CPM =====
@@ -40,6 +49,12 @@ function fmtSlack(x) {
 }
 
 onMounted(() => {
+  console.log('[GraphCanvas] mounting, container:', container.value);
+  try {
+    const rect = container.value?.getBoundingClientRect?.() || null;
+    console.log('[GraphCanvas] container rect:', rect);
+  } catch (err) { /* ignore */ }
+
   cy = cytoscape({
     container: container.value,
     wheelSensitivity: 0.4,
@@ -117,20 +132,81 @@ onMounted(() => {
           'border-color': '#ef4444',
         }
       }
+      ,
+      // ====== RESALTADO DE MST (KRUSKAL) ======
+      {
+        selector: 'edge.mst',
+        style: {
+          'line-color': '#10b981',
+          'width': 3,
+          'arrow-scale': 1.1,
+          'color': '#10b981',
+          'text-outline-color': '#0b1020',
+          'text-outline-width': 1.5,
+          'target-arrow-color': '#10b981'
+        }
+      },
+        {
+          selector: 'edge.dijkstra',
+          style: {
+            'line-color': '#f59e0b',
+            'width': 4,
+            'target-arrow-color': '#f59e0b'
+          }
+        },
+        {
+          selector: 'node.dijkstra',
+          style: {
+            'border-width': 3,
+            'border-color': '#f59e0b'
+          }
+        },
+      {
+        selector: 'node.mst',
+        style: {
+          'border-width': 2,
+          'border-color': '#10b981'
+        }
+      }
     ],
     layout: { name: 'preset' }
   });
+  console.log('[GraphCanvas] cytoscape instance created', !!cy);
+  try { bindInteractions(); console.log('[GraphCanvas] bindInteractions attached'); } catch (err) { console.error('[GraphCanvas] bindInteractions error', err); }
 
-  bindInteractions();
+  // Temporary debug: listen to native clicks on the container to check event propagation
+  try {
+    if (container.value && container.value.addEventListener) {
+      const handler = (ev) => { console.log('[GraphCanvas] container DOM click at', ev.clientX, ev.clientY); };
+      container.value.__dbgClickHandler = handler;
+      container.value.addEventListener('click', handler);
+      console.log('[GraphCanvas] container click listener attached');
+    }
+  } catch (err) { console.error('[GraphCanvas] attach container click handler error', err); }
+
 });
 
 onBeforeUnmount(() => { if (cy) { cy.destroy(); cy = null; } });
 
+// cleanup container click listener if present
+onBeforeUnmount(() => {
+  try {
+    if (container.value && container.value.__dbgClickHandler) {
+      container.value.removeEventListener('click', container.value.__dbgClickHandler);
+      delete container.value.__dbgClickHandler;
+      console.log('[GraphCanvas] container click listener removed');
+    }
+  } catch (err) { /* ignore */ }
+});
+
 function bindInteractions() {
+  console.log('[GraphCanvas] bindInteractions() called');
   // fondo → agregar nodo
   cy.on('tap', (evt) => {
     if (evt.target !== cy) return;
+    console.log('[GraphCanvas] tap en fondo, modo actual:', props.mode, 'esperado:', MODES.ADD_NODE)
     if (props.mode === MODES.ADD_NODE) {
+      console.log('[GraphCanvas] Emitiendo addNode con posición:', evt.position)
       emitAddNode(evt.position);
     }
   });
@@ -173,6 +249,93 @@ function bindInteractions() {
       emitEditEdge(e.id(), isFinite(w) ? w : 0, directed);
     }
   });
+}
+
+// ====== Visual MST (Kruskal) ======
+function showMST(result, mode) {
+  const mst = result?.mstEdgeIds || result?.mstEdges || [];
+  // reset labels to weights by default
+  cy.edges().forEach(e => {
+    const w = Number(e.data('weight'));
+    e.data('labelText', String(isFinite(w) ? w : 0));
+  });
+
+  cy.nodes().addClass('dim');
+  cy.edges().addClass('dim');
+
+  mst.forEach(id => {
+    const e = cy.getElementById(id);
+    if (e && e.nonempty()) {
+      e.removeClass('dim').addClass('mst');
+      e.source().removeClass('dim').addClass('mst');
+      e.target().removeClass('dim').addClass('mst');
+    }
+  });
+  // show overlay with total weight
+  try {
+    const overlay = mstOverlay.value;
+      if (overlay) {
+      const w = Number(result?.totalWeight ?? 0);
+      const label = mode === 'max' ? 'Total Maximizacion' : 'Total Minimización';
+      // update structured content
+      const val = overlay.querySelector('.mst-value');
+      const labelNode = overlay.querySelector('.mst-label');
+      if (val) val.textContent = String(w);
+      if (labelNode) labelNode.firstChild && (labelNode.firstChild.textContent = `${label}: `);
+      overlay.style.display = 'block';
+    }
+  } catch (err) { console.error('showMST overlay error', err); }
+}
+
+function clearMST() {
+  cy.elements().removeClass('mst').removeClass('dim');
+  try {
+    const overlay = mstOverlay.value;
+    if (overlay) overlay.style.display = 'none';
+  } catch (err) { console.error('clearMST overlay error', err); }
+}
+
+// ====== Highlight Dijkstra path ======
+function showPath(nodeIds){
+  try{
+    cy.elements().removeClass('dijkstra').addClass('dim');
+    // Normalize nodeIds: if an id isn't found, try to match by node label or labelDisplay
+    const normalized = [];
+    nodeIds.forEach(id => {
+      let n = cy.getElementById(id);
+      if (!n || !n.nonempty()) {
+        // try matching by label or labelDisplay
+        const found = cy.nodes().filter(ele => {
+          const lbl = ele.data('label');
+          const ld = ele.data('labelDisplay');
+          return (lbl === id) || (ld === id);
+        });
+        if (found && found.nonempty()) {
+          n = found[0];
+          console.log('[GraphCanvas] showPath: mapped label', id, '-> node id', n.id());
+        } else {
+          console.warn('[GraphCanvas] showPath: node not found for', id);
+          n = null;
+        }
+      }
+      normalized.push(n ? n.id() : id);
+    });
+
+    normalized.forEach((id, idx)=>{
+      const n = cy.getElementById(id);
+      if(n && n.nonempty()){ n.removeClass('dim').addClass('dijkstra'); }
+      if(idx < normalized.length - 1){
+        // find edge between id -> next (consider directed flag stored as 1/0)
+        const next = normalized[idx+1];
+        const e = cy.edges().filter(ele => (ele.data('source')===id && ele.data('target')===next) || (!ele.data('directed') && ele.data('source')===next && ele.data('target')===id));
+        if(e && e.nonempty()){ e.removeClass('dim').addClass('dijkstra'); e.source().removeClass('dim').addClass('dijkstra'); e.target().removeClass('dim').addClass('dijkstra'); }
+      }
+    });
+  }catch(err){ console.error('showPath error', err); }
+}
+
+function clearPath(){
+  cy.elements().removeClass('dijkstra').removeClass('dim');
 }
 
 // ====== Emits a App.vue ======
@@ -316,29 +479,52 @@ function getGraphData() {
 
 function loadGraphData(json, { replace = false } = {}) {
   if (replace) cy.elements().remove();
-  const els = [];
+
+  const nodeEls = [];
+  const edgeEls = [];
+  const providedNodes = new Set((json.nodes || []).map(n => n.id));
+
   (json.nodes || []).forEach(n => {
     const base = n.label || n.id;
-    els.push({
+    nodeEls.push({
       group: 'nodes',
       data: { id: n.id, label: base, labelDisplay: base, color: n.color || '#66ccff' },
       position: n.position
     });
   });
+
+  const droppedEdges = [];
   (json.edges || []).forEach(e => {
     const w = Number(e.weight) || 0;
+    const src = e.source; const tgt = e.target;
+    if (!src || !tgt || !providedNodes.has(src) || !providedNodes.has(tgt)) {
+      droppedEdges.push(e);
+      return;
+    }
     // Si johnsonStrict está activo al importar, forzamos dirigidas; no reparamos pares/ciclos aquí.
-    els.push({
+    edgeEls.push({
       group: 'edges',
       data: {
-        id: e.id, source: e.source, target: e.target,
+        id: e.id, source: src, target: tgt,
         weight: w, directed: johnsonStrict ? 1 : (e.directed ? 1 : 0),
         labelText: String(w)
       }
     });
   });
-  cy.add(els);
-  cy.fit(undefined, 40);
+
+  if (droppedEdges.length) {
+    console.warn('[GraphCanvas] loadGraphData: se descartaron aristas por referencias faltantes:', droppedEdges);
+  }
+
+  try {
+    if (nodeEls.length) cy.add(nodeEls);
+    if (edgeEls.length) cy.add(edgeEls);
+    cy.fit(undefined, 40);
+  } catch (err) {
+    console.error('[GraphCanvas] loadGraphData -> error adding elements', err, { nodeCount: nodeEls.length, edgeCount: edgeEls.length });
+    // intentar añadir solo nodos para evitar crash
+    try { if (nodeEls.length) cy.add(nodeEls); } catch (err2) { console.error('[GraphCanvas] re-add nodes error', err2); }
+  }
 }
 
 /** Matriz de adyacencia */
@@ -431,9 +617,52 @@ defineExpose({
   getAdjacency,
   showCriticalCPM,
   clearCriticalCPM
+  ,
+  showMST,
+  clearMST
+  ,showPath, clearPath
 });
 </script>
 
 <style scoped>
 .canvas { width: 100%; height: 100%; }
+
+/* MST overlay styling */
+.mst-overlay {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: none; /* shown via JS */
+  z-index: 1200;
+}
+.mst-overlay .mst-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(6,95,70,0.12), rgba(6,95,70,0.06));
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(34,197,94,0.18);
+  border-left: 6px solid var(--accent);
+  color: var(--text);
+  padding: 14px 18px;
+  border-radius: 12px;
+  min-width: 260px;
+  box-shadow: 0 10px 36px rgba(2,6,23,0.6);
+  font-size: 60px;
+  font-weight: 700;
+}
+.mst-overlay .mst-label { color: var(--primary); font-size:16px }
+.mst-overlay .mst-value { color: var(--primary); margin-left:6px; font-size:18px; font-weight:800 }
+.mst-overlay .mst-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px;
+  border-radius: 6px;
+}
+.mst-overlay .mst-close:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+
 </style>

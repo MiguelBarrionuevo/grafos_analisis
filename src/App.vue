@@ -11,18 +11,24 @@
       @run-assignment="switchToAssignmentView"
       class="sidebar"
       :mode="mode"
+      :johnson-strict="johnsonStrict"
       :johnson-disabled="johnsonDisabled"
+      :kruskal-disabled="kruskalDisabled"
+      @run-kruskal="runKruskal"
       @set-mode="setMode"
       @confirm-clear="openConfirmClear"
       @open-matrix="openMatrixModal"
       @export-graph="openExportModal"
       @import-graph="openImportModal"
-      @open-help="openHelp"
+  @open-sort="switchToSortView"
+  @open-dijkstra="switchToDijkstraView"
+  @open-help="openHelp"
       @run-johnson="openJohnsonChoice"
       @clear-highlight="clearHighlight"
       @toggle-johnson-mode="setJohnsonMode"
       @open-build-tree="switchToBinaryTreeView"
       @open-reconstruct-tree="switchToReconstructTreeView"
+      @open-northwest="switchToNorthwestView"
     />
 
     <main class="main">
@@ -54,6 +60,38 @@
           <label class="label">Color</label>
           <input v-model="forms.addNode.color" type="color" class="input color-input" />
         </div>
+      </div>
+    </GraphModal>
+
+    <!-- MODAL: Elegir criterio Kruskal (min / max) -->
+    <GraphModal
+      :visible="modals.kruskalChoice.visible"
+      title="Kruskal — Selecciona Minimización o Maximización"
+      :hide-submit="true"
+      @cancel="() => (modals.kruskalChoice.visible = false)"
+    >
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <button
+          class="button"
+          @click="runKruskalCompute('min')"
+        >
+          ⬇️ Minimización (MST clásico)
+        </button>
+        <button
+          class="button"
+          @click="runKruskalCompute('max')"
+        >
+          ⬆️ Maximización (MaxST)
+        </button>
+      </div>
+
+      <div style="margin-top:10px; color:var(--muted); font-size:13px; line-height:1.5;">
+        <p><strong>Guía rápida:</strong></p>
+        <ul style="padding-left:18px; margin:6px 0;">
+          <li><strong>Minimización</strong>: Calcula el <em>árbol generador mínimo</em> (MST) — suma total de pesos mínima.</li>
+          <li><strong>Maximización</strong>: Calcula el <em>árbol generador máximo</em> (MaxST) — suma total de pesos máxima.</li>
+        </ul>
+        <p><strong>Nota:</strong> Kruskal requiere un grafo <em>no dirigido</em>. Si tienes múltiples componentes, el resultado será un bosque (varios árboles).</p>
       </div>
     </GraphModal>
 
@@ -249,28 +287,77 @@
       :hide-submit="true"
       @cancel="closeHelp"
     >
-      <div style="display:flex;flex-direction:column;gap:10px;line-height:1.5">
-        <h3 style="margin:0">Guía rápida</h3>
-        <ul style="margin:0 0 6px 18px">
-          <li><strong>Agregar nodo:</strong> elige “Agregar nodo” y haz clic en la pizarra. Completa nombre y color.</li>
-          <li><strong>Agregar arista:</strong> elige “Agregar arista”, clic en <em>origen</em> y luego en <em>destino</em>. Ingresa peso (≥ 0) y si es dirigida.</li>
-          <li><strong>Editar:</strong> elige “Editar” y <strong>doble clic</strong> en un nodo/arista para cambiar sus datos.</li>
-          <li><strong>Borrar:</strong> elige “Borrar” y clic en el elemento. Confirma para eliminar.</li>
-        </ul>
-        <h3 style="margin:10px 0 0 0">Herramientas</h3>
-        <ul style="margin:0 0 6px 18px">
-          <li><strong>Matriz de adyacencia:</strong> muestra la matriz (con/sin pesos), permite copiar CSV.</li>
-          <li><strong>Exportar:</strong> guarda el grafo como <code>.json</code>.</li>
-          <li><strong>Importar:</strong> carga un <code>.json</code> con la estructura <code>{ nodes:[], edges:[] }</code> y reemplaza el grafo.</li>
-        </ul>
-        <h3 style="margin:10px 0 0 0">Navegación</h3>
-        <ul style="margin:0 0 6px 18px">
-          <li><strong>Zoom:</strong> rueda del mouse.</li>
-          <li><strong>Pan:</strong> arrastra sobre el fondo para mover la vista.</li>
-        </ul>
-        <small style="color:var(--muted)">
-          Si tienes dudas o sugerencias, visita el <a href="www.github.com/miguel-barrionuevo/vue-graph-editor" target="_blank" rel="noopener">repositorio en GitHub</a>.
-        </small>
+      <div style="min-width:320px">
+        <div v-if="forms.helpPage === 0" style="display:flex;flex-direction:column;gap:10px;line-height:1.5">
+          <h3 style="margin:0">Guía rápida</h3>
+          <ul style="margin:0 0 6px 18px">
+            <li><strong>Agregar nodo:</strong> elige “Agregar nodo” y haz clic en la pizarra. Completa nombre y color.</li>
+            <li><strong>Agregar arista:</strong> elige “Agregar arista”, clic en <em>origen</em> y luego en <em>destino</em>. Ingresa peso (≥ 0) y si es dirigida.</li>
+            <li><strong>Editar:</strong> elige “Editar” y <strong>doble clic</strong> en un nodo/arista para cambiar sus datos.</li>
+            <li><strong>Borrar:</strong> elige “Borrar” y clic en el elemento. Confirma para eliminar.</li>
+          </ul>
+          <h3 style="margin:10px 0 0 0">Herramientas</h3>
+          <ul style="margin:0 0 6px 18px">
+            <li><strong>Matriz de adyacencia:</strong> muestra la matriz (con/sin pesos), permite copiar CSV.</li>
+            <li><strong>Exportar:</strong> guarda el grafo como <code>.json</code>.</li>
+            <li><strong>Importar:</strong> carga un <code>.json</code> con la estructura <code>{ nodes:[], edges:[] }</code> y reemplaza el grafo.</li>
+          </ul>
+          <h3 style="margin:10px 0 0 0">Navegación</h3>
+          <ul style="margin:0 0 6px 18px">
+            <li><strong>Zoom:</strong> rueda del mouse.</li>
+            <li><strong>Pan:</strong> arrastra sobre el fondo para mover la vista.</li>
+          </ul>
+        </div>
+
+        <div v-else-if="forms.helpPage === 1" style="line-height:1.5">
+          <h3 style="margin:0">Johnson — Guía de uso</h3>
+          <div style="margin-top:8px;color:var(--muted);font-size:13px;">
+            <p><strong>Qué hace:</strong> Calcula rutas especiales en DAGs. Puedes elegir entre maximización (ruta crítica) o minimización (ruta mínima).</p>
+            <p><strong>Condiciones necesarias:</strong></p>
+            <ul style="padding-left:18px; margin:6px 0;">
+              <li>✔️ El grafo debe ser <strong>dirigido</strong> (todas las aristas con flecha).</li>
+              <li>✔️ No se permiten <strong>ciclos</strong> (debe ser un DAG).</li>
+              <li>✔️ Los pesos deben ser números <em>mayores o iguales a 0</em>.</li>
+            </ul>
+            <p><strong>Cómo usar:</strong></p>
+            <ol style="padding-left:18px; margin:6px 0;">
+              <li>Activa el modo Johnson desde el toggle en la barra lateral.</li>
+              <li>Haz clic en <em>Johnson</em> y elige Maximización o Minimización en el modal que aparece.</li>
+              <li>Observa el resultado resaltado en el lienzo; las aristas críticas mostrarán su holgura.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div v-else style="line-height:1.5">
+          <h3 style="margin:0">Kruskal — Guía de uso</h3>
+          <div style="margin-top:8px;color:var(--muted);font-size:13px;">
+            <p><strong>Qué hace:</strong> Calcula un árbol generador (o bosque) usando Kruskal. Puedes elegir minimización (MST) o maximización (MaxST).</p>
+            <p><strong>Condiciones necesarias:</strong></p>
+            <ul style="padding-left:18px; margin:6px 0;">
+              <li>✔️ El grafo debe ser <strong>no dirigido</strong> (no tener flechas en las aristas).</li>
+              <li>✔️ Los pesos deben ser números (se asume 0 si faltan/o no numéricos).</li>
+            </ul>
+            <p><strong>Cómo usar:</strong></p>
+            <ol style="padding-left:18px; margin:6px 0;">
+              <li>Asegúrate de que las aristas no sean dirigidas.</li>
+              <li>Haz clic en <em>Kruskal (MST)</em> en la barra lateral.</li>
+              <li>En el modal elige Minimización (MST clásico) o Maximización (MaxST).</li>
+              <li>El resultado se resaltará en el lienzo; usa "Quitar resaltado" para limpiar.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+          <div>
+            <button class="button small" :disabled="forms.helpPage===0" @click="helpPrev">Anterior</button>
+            <button class="button small" style="margin-left:8px" :disabled="forms.helpPage===2" @click="helpNext">Siguiente</button>
+          </div>
+          <div style="color:var(--muted);font-size:12px">Página {{ forms.helpPage + 1 }} / 3</div>
+        </div>
+
+        <div style="margin-top:10px;color:var(--muted)">
+          <small>Si tienes dudas o sugerencias, visita el <a href="www.github.com/miguel-barrionuevo/vue-graph-editor" target="_blank" rel="noopener">repositorio en GitHub</a>.</small>
+        </div>
       </div>
     </GraphModal>
 
@@ -344,7 +431,7 @@
       </div>
     </GraphModal>
 
-
+    
   </div>
   <!-- Vista dedicada para el algoritmo de Asignación -->
   <AssignmentView v-else-if="currentView === 'assignment'" @back-to-main="switchToMainView" />
@@ -357,6 +444,13 @@
 
   <!-- Vista dedicada para MATLAB -->
   <MatlabView v-else-if="currentView === 'matlab'" @back-to-main="switchToMainView" />
+
+  <!-- Vista dedicada para Ordenamiento -->
+  <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
+  <!-- Vista dedicada para Dijkstra -->
+  <DijkstraView v-else-if="currentView === 'dijkstra'" @back-to-main="switchToMainView" :getGraphData="getGraphDataSafe" :graphApi="graphRef?.value" />
+  <!-- Vista dedicada para Algoritmo Northwest -->
+  <NorthwestView v-else-if="currentView === 'northwest'" @back-to-main="switchToMainView" />
 </template>
 
 <script setup>
@@ -366,7 +460,8 @@ import GraphSidebar from './components/GraphSidebar.vue';
 import GraphCanvas from './components/GraphCanvas.vue';
 import GraphModal from './components/GraphModal.vue';
 import { MODES } from './constants/modes';
-import { computeCPM, computeShortestPathDAG } from './utils/cpm';
+import { computeCPM, computeShortestPathDAG } from './utils/cpm'
+import { computeKruskal } from './utils/kruskal'
 const AssignmentView = defineAsyncComponent(() =>
   import('./components/AssignmentView.vue')
 );
@@ -379,6 +474,9 @@ const ReconstructTreeView = defineAsyncComponent(() =>
 const MatlabView = defineAsyncComponent(() =>
   import('./components/MatlabView.vue')
 );
+const SortView = defineAsyncComponent(() => import('./components/SortView.vue'));
+const NorthwestView = defineAsyncComponent(() => import('./components/NorthwestView.vue'));
+const DijkstraView = defineAsyncComponent(() => import('./components/DijkstraView.vue'));
 
 const graphRef = ref(null);
 const mode = ref(MODES.ADD_NODE);
@@ -388,7 +486,30 @@ const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
 const switchToMatlabView = () => { currentView.value = 'matlab'; };
+const switchToSortView = () => { saveGraphData(); currentView.value = 'sort'; };
+const switchToNorthwestView = () => { saveGraphData(); currentView.value = 'northwest'; };
+const switchToDijkstraView = () => { saveGraphData(); currentView.value = 'dijkstra'; };
 const switchToMainView = () => { currentView.value = 'main'; };
+
+// Estado para almacenar datos del grafo cuando se cambia de vista
+const savedGraphData = ref(null);
+
+// Función para guardar datos antes de cambiar de vista
+function saveGraphData() {
+  if (graphRef.value?.getGraphData) {
+    savedGraphData.value = graphRef.value.getGraphData();
+  }
+}
+
+// Función segura para obtener datos del grafo
+function getGraphDataSafe() {
+  if (graphRef.value?.getGraphData) {
+    const data = graphRef.value.getGraphData();
+    savedGraphData.value = data;
+    return data;
+  }
+  return savedGraphData.value || { nodes: [], edges: [] };
+}
 
 // === Toggle de modo Johnson estricto ===
 const johnsonStrict = ref(false);
@@ -416,6 +537,7 @@ const modals = reactive({
   help: { visible: false },
   johnson: { visible: false },
   johnsonChoice: { visible: false },
+  kruskalChoice: { visible: false },
 });
 
 const forms = reactive({
@@ -426,6 +548,8 @@ const forms = reactive({
   delete: { id: '', kind: 'node' },
   exportGraph: { filename: defaultExportName(), error: '' },
   importGraph: { parsed: null, fileName: '', error: '', preview: { nodes: 0, edges: 0 } }
+  
+  ,helpPage: 0
 });
 
 const pendingNodePos = ref(null);
@@ -605,8 +729,10 @@ function submitImport() {
 }
 
 /* ===== Ayuda ===== */
-function openHelp() { modals.help.visible = true; }
+function openHelp() { forms.helpPage = 0; modals.help.visible = true; }
 function closeHelp() { modals.help.visible = false; }
+function helpNext() { forms.helpPage = Math.min(forms.helpPage + 1, 2); }
+function helpPrev() { forms.helpPage = Math.max(forms.helpPage - 1, 0); }
 
 function runJohnson(mode = 'max') {
   const data = graphRef.value.getGraphData();
@@ -648,9 +774,52 @@ const johnsonDisabled = computed(() => {
 });
 
 
+const kruskalDisabled = computed(() => {
+  const data = graphRef.value?.getGraphData?.();
+  if (!data) return false;
+  return data.edges.some(e => !!e.directed);
+});
+
+
+function runKruskal() {
+  const data = graphRef.value.getGraphData();
+  if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+    alert('El grafo aún no está listo.');
+    return;
+  }
+
+  // Requiere aristas no dirigidas
+  if (data.edges.some(e => !!e.directed)) {
+    alert('Kruskal requiere aristas no dirigidas. Edita las aristas para quitar la dirección.');
+    return;
+  }
+  // Show modal to choose minimization or maximization
+  modals.kruskalChoice.visible = true;
+}
+
+function runKruskalCompute(mode = 'min') {
+  // mode: 'min' (default) or 'max'
+  modals.kruskalChoice.visible = false;
+  const data = graphRef.value.getGraphData();
+  try {
+    const res = computeKruskal(data.nodes, data.edges, mode);
+    if (!res.ok) {
+      alert(res.message || 'No se pudo calcular el MST.');
+      return;
+    }
+
+    // Pinta el MST en el lienzo y muestra el total en la pizarra
+    graphRef.value.showMST?.(res, mode);
+  } catch (err) {
+    alert(String(err) || 'Error al calcular Kruskal.');
+  }
+}
+
+
 
 function clearHighlight() {
-  graphRef.value.clearCriticalCPM();
+  graphRef.value.clearCriticalCPM?.();
+  graphRef.value.clearMST?.();
 }
 
 function openJohnsonChoice() {
