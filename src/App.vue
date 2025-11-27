@@ -2,6 +2,9 @@
   <div v-if="currentView === 'main'" class="app-layout">
     <header class="header">
       <h1>Analisis de Algoritmos - Lagartos Del Parque 🦎</h1>
+      <button class="matlab-header-button" @click="switchToMatlabView">
+        <i class="fas fa-brain"></i> MATLAB
+      </button>
     </header>
 
     <GraphSidebar
@@ -438,6 +441,10 @@
 
   <!-- Vista dedicada para Reconstruir Árboles -->
   <ReconstructTreeView v-else-if="currentView === 'reconstruct-tree'" @back-to-main="switchToMainView" />
+
+  <!-- Vista dedicada para MATLAB -->
+  <MatlabView v-else-if="currentView === 'matlab'" @back-to-main="switchToMainView" />
+
   <!-- Vista dedicada para Ordenamiento -->
   <SortView v-else-if="currentView === 'sort'" @back-to-main="switchToMainView" />
   <!-- Vista dedicada para Dijkstra -->
@@ -464,6 +471,9 @@ const BinaryTreeView = defineAsyncComponent(() =>
 const ReconstructTreeView = defineAsyncComponent(() =>
   import('./components/ReconstructTreeView.vue')
 );
+const MatlabView = defineAsyncComponent(() =>
+  import('./components/MatlabView.vue')
+);
 const SortView = defineAsyncComponent(() => import('./components/SortView.vue'));
 const NorthwestView = defineAsyncComponent(() => import('./components/NorthwestView.vue'));
 const DijkstraView = defineAsyncComponent(() => import('./components/DijkstraView.vue'));
@@ -475,6 +485,7 @@ const currentView = ref('main');
 const switchToAssignmentView = () => { currentView.value = 'assignment'; };
 const switchToBinaryTreeView = () => { currentView.value = 'binary-tree'; };
 const switchToReconstructTreeView = () => { currentView.value = 'reconstruct-tree'; };
+const switchToMatlabView = () => { currentView.value = 'matlab'; };
 const switchToSortView = () => { saveGraphData(); currentView.value = 'sort'; };
 const switchToNorthwestView = () => { saveGraphData(); currentView.value = 'northwest'; };
 const switchToDijkstraView = () => { saveGraphData(); currentView.value = 'dijkstra'; };

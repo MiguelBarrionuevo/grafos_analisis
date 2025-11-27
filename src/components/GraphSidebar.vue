@@ -95,6 +95,8 @@
     </div>
     <hr class="sep" />
 
+
+
     <div class="group">
       <h2>Arboles Binarios de Busqueda</h2>
       <button class="button" @click="$emit('open-build-tree')">🌳 Construir Arboles</button>
@@ -141,5 +143,3 @@ const modeLabel = computed(() => {
   }
 });
 </script>
-
-
